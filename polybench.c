@@ -71,7 +71,9 @@ struct polybench_data_ptrs
   int nb_entries;
   int nb_avail_entries;
 };
+#ifdef POLYBENCH_ENABLE_INTARRAY_PAD
 static struct polybench_data_ptrs* _polybench_alloc_table = NULL;
+#endif
 static size_t polybench_inter_array_padding_sz = 0;
 
 /* Timer code (gettimeofday). */

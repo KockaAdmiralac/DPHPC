@@ -42,7 +42,7 @@ def get_script_dir() -> Path:
     return Path(os.path.realpath(__file__)).parent
 
 
-def compile(benchmark: str, variant: int, cached_bins: bool) -> Binary:
+def compile(benchmark: str, variant: int, cached_bins: bool, n: int) -> Binary:
     script_dir = get_script_dir()
     os.makedirs(script_dir / 'bin', exist_ok=True)
     bin_path = script_dir / 'bin' / f'{benchmark}_{variant}'
@@ -80,8 +80,9 @@ def compile(benchmark: str, variant: int, cached_bins: bool) -> Binary:
         '-I', str(benchmark_dir),
         '-DPOLYBENCH_TIME',
         '-DPOLYBENCH_DUMP_ARRAYS',
+        f'-DN={n}',
         str(script_dir / 'polybench.c'),
-        str(script_dir / ''),
+        str(benchmark_dir / f'{benchmark}.c'),
         str(variant_path)
     ]
     if mode == 'openmp':
@@ -103,6 +104,8 @@ def run(
     script_dir = get_script_dir()
     results_dir = script_dir / 'results'
     os.makedirs(results_dir, exist_ok=True)
+
+    # Find arguments for running the benchmark
     if binary.mode == 'mpi':
         args = ['mpiexec', '-n', str(threads), str(binary.path)]
         env = {}
@@ -115,13 +118,23 @@ def run(
         args = [str(binary.path)]
         env = {}
 
+    # Read results from cache, if specified
+    results_filename = f'{binary.benchmark}_{binary.variant}_{threads}.log'
+    results_path = results_dir / results_filename
+    if cached_results and results_path.exists():
+        with open(results_path, 'r') as results_file:
+            lines = results_file.readlines()
+            mean = float(lines.pop(0))
+            std = float(lines.pop(0))
+            output = ''.join(lines)
+        return Result(binary.variant, binary.mode, threads, mean, std, output)
+
+    # Run the benchmark
     results = []
     output = ''
     for _ in range(runs):
-        if cached_results:
-            results.append(0)
-            continue
-        process = subprocess.Popen(args, env=env)
+        process = subprocess.Popen(args, env=env, stdout=subprocess.PIPE,
+                                   stderr=subprocess.PIPE, text=True)
         exit_code = process.wait()
         if exit_code != 0:
             raise ValueError(f'Exit code {exit_code} for {binary.path}')
@@ -129,10 +142,18 @@ def run(
             raise ValueError('No process timing output found')
         if process.stderr is None:
             raise ValueError('No process data output found')
-        results.append(float(process.stdout.read().decode('utf-8')))
-        output = process.stderr.read().decode('utf-8')
+        mean_time = float(process.stdout.read())
+        results.append(mean_time)
+        output = process.stderr.read()
         if ground_truth is not None and ground_truth.data != output:
             raise ValueError(f'Discrepancy between results - {binary.path}')
+
+    # Write results to cache
+    with open(results_path, 'w') as results_file:
+        results_file.write(f'{np.mean(results)}\n')
+        results_file.write(f'{np.std(results)}\n')
+        results_file.write(output)
+
     return Result(binary.variant, binary.mode, threads,
                   float(np.mean(results)), float(np.std(results)), output)
 
@@ -148,6 +169,8 @@ if __name__ == '__main__':
                         help='Numbers of threads to run with (tries each)')
     parser.add_argument('--runs', type=int, default=10,
                         help='The number of runs to perform')
+    parser.add_argument('--n', type=int, default=4000,
+                        help='The number passed as N to the kernel')
     parser.add_argument('--cached_bins', action='store_true', default=False,
                         help='Do not compile binaries if compiled previously')
     parser.add_argument('--cached_results', action='store_true', default=False,
@@ -159,7 +182,7 @@ if __name__ == '__main__':
         raise ValueError('Variant 0 is the baseline')
 
     binaries = [
-        compile(args.benchmark, variant, args.cached_bins)
+        compile(args.benchmark, variant, args.cached_bins, args.n)
         for variant in [0] + args.variants
     ]
 

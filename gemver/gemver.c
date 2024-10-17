@@ -79,6 +79,8 @@ void print_array(int n,
 
 int main(int argc, char** argv)
 {
+  (void) argc;
+  (void) argv;
   /* Retrieve problem size. */
   int n = N;
 
