@@ -1,2 +1,3 @@
-bin
 results
+slurm-*.out
+bin/

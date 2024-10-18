@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 from argparse import ArgumentParser, Action
 from dataclasses import dataclass
+import itertools
 import os
 from pathlib import Path
 import subprocess
 from typing import Literal, Optional
+import typing
 
 import numpy as np
 from tabulate import tabulate
@@ -13,7 +15,13 @@ from tabulate import tabulate
 Mode = Literal["serial", "openmp", "mpi", "cuda"]
 
 
-class SplitArgs(Action):
+class SplitStrArgs(Action):
+    def __call__(self, parser, namespace, values, option_string=None):
+        if isinstance(values, str):
+            setattr(namespace, self.dest, [value for value in values.split(",")])
+
+
+class SplitIntArgs(Action):
     def __call__(self, parser, namespace, values, option_string=None):
         if isinstance(values, str):
             setattr(namespace, self.dest, [int(value) for value in values.split(",")])
@@ -24,15 +32,18 @@ class Binary:
     path: Path
     benchmark: str
     variant: int
-    mode: Mode
+    scheme: ParallelisationSchemes
 
 
 @dataclass
 class Result:
     variant: int
-    mode: Mode
+    scheme: ParallelisationSchemes
     threads: int
     mean: float
+    min: float
+    max: float
+    median: float
     std: float
     data: str
 
@@ -41,33 +52,35 @@ def get_script_dir() -> Path:
     return Path(os.path.realpath(__file__)).parent
 
 
-def compile(benchmark: str, variant: int, cached_bins: bool, n: int) -> Binary:
+def compile(benchmark: str, variant: str, cached_bins: bool, n: int) -> Binary:
     script_dir = get_script_dir()
     os.makedirs(script_dir / "bin", exist_ok=True)
     bin_path = script_dir / "bin" / f"{benchmark}_{variant}"
+
+    pb_generic_compunits = (script_dir / "polybench.c",)
     benchmark_dir = script_dir / benchmark
-    variant_path = benchmark_dir / f"v{variant}.c"
-    if not variant_path.exists():
-        variant_path = benchmark_dir / f"v{variant}.cu"
-    with open(variant_path, "r") as variant_file:
-        variant_code = variant_file.read()
-        if "#pragma omp" in variant_code:
-            mode = "openmp"
-        elif "__global__" in variant_code:
-            mode = "cuda"
-        elif "MPI_Init" in variant_code:
-            mode = "mpi"
-        else:
-            mode = "serial"
+    assert benchmark_dir.exists()
+
+    scheme = variant.split("_")[-1]
+    assert scheme in typing.get_args(ParallelisationSchemes)
+
+    variant_dir = benchmark_dir / f"v{variant}"
+    assert variant_dir.exists()
+
+    compunit_filter = lambda files: filter(lambda fp: fp.suffix in (".c", ".cu"), files)
+    benchmark_files = compunit_filter(benchmark_dir.iterdir())
+    variant_files = compunit_filter(variant_dir.iterdir())
+    compunits = itertools.chain(pb_generic_compunits, benchmark_files, variant_files)
+
     if cached_bins and bin_path.exists():
-        return Binary(bin_path, benchmark, variant, mode)
+        return Binary(bin_path, benchmark, variant, scheme)
     args = [
         {
             "serial": "gcc",
             "openmp": "gcc",
             "mpi": "mpicc",
             "cuda": "nvcc",
-        }[mode],
+        }[scheme],
         "-Wall",
         "-Wextra",
         # '-fsanitize=address',
@@ -83,17 +96,14 @@ def compile(benchmark: str, variant: int, cached_bins: bool, n: int) -> Binary:
         "-DPOLYBENCH_TIME",
         "-DPOLYBENCH_DUMP_ARRAYS",
         f"-DN={n}",
-        str(script_dir / "polybench.c"),
-        str(benchmark_dir / f"{benchmark}.c"),
-        str(variant_path),
-    ]
-    if mode == "openmp":
+    ] + list(map(str, compunits))
+    if scheme == "openmp":
         args.append("-fopenmp")
-    if mode != "cuda":
+    if scheme != "cuda":
         args.append("-ffast-math")
         args.append("-march=native")
     subprocess.check_call(args)
-    return Binary(bin_path, benchmark, variant, mode)
+    return Binary(bin_path, benchmark, variant, scheme)
 
 
 def run(
@@ -108,10 +118,10 @@ def run(
     os.makedirs(results_dir, exist_ok=True)
 
     # Find arguments for running the benchmark
-    if binary.mode == "mpi":
+    if binary.scheme == "mpi":
         args = ["mpiexec", "-n", str(threads), str(binary.path)]
         env = {}
-    elif binary.mode == "openmp":
+    elif binary.scheme == "openmp":
         args = [str(binary.path)]
         env = {"OMP_NUM_THREADS": str(threads)}
     else:
@@ -157,9 +167,12 @@ def run(
 
     return Result(
         binary.variant,
-        binary.mode,
+        binary.scheme,
         threads,
         float(np.mean(results)),
+        float(np.min(results)),
+        float(np.max(results)),
+        float(np.median(results)),
         float(np.std(results)),
         output,
     )
@@ -173,11 +186,11 @@ if __name__ == "__main__":
         "--benchmark", type=str, required=True, help="The benchmark to run"
     )
     parser.add_argument(
-        "--variants", action=SplitArgs, required=True, help="The variants to run"
+        "--variants", action=SplitStrArgs, required=True, help="The variants to run"
     )
     parser.add_argument(
         "--threads",
-        action=SplitArgs,
+        action=SplitIntArgs,
         default=[1, 2, 4, 8],
         help="Numbers of threads to run with (tries each)",
     )
@@ -201,13 +214,11 @@ if __name__ == "__main__":
     )
 
     args = parser.parse_args()
-    variants = [variant for variant in args.variants if variant != 0]
-    if len(variants) == 0:
-        raise ValueError("Variant 0 is the baseline")
+    variants = set(args.variants)
 
     binaries = [
         compile(args.benchmark, variant, args.cached_bins, args.n)
-        for variant in [0] + args.variants
+        for variant in variants
     ]
 
     ground_truth = run(binaries.pop(0), 1, args.runs, args.cached_results)
@@ -220,9 +231,27 @@ if __name__ == "__main__":
     print(
         tabulate(
             [
-                (result.variant, result.mode, result.threads, result.mean, result.std)
+                (
+                    result.variant,
+                    result.scheme,
+                    result.threads,
+                    result.mean,
+                    result.min,
+                    result.max,
+                    result.median,
+                    result.std,
+                )
                 for result in [ground_truth] + results
             ],
-            headers=["Variant", "Mode", "Threads", "Runtime (mean)", "Runtime (std)"],
+            headers=[
+                "Variant",
+                "Parallelisation Scheme",
+                "Threads",
+                "Runtime (mean)",
+                "Min",
+                "Max",
+                "Median",
+                "Runtime (stdev)",
+            ],
         )
     )
