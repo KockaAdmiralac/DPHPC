@@ -1,18 +1,20 @@
 #!/usr/bin/env python3
 from argparse import ArgumentParser, Action
 from dataclasses import dataclass
+import datetime
 import itertools
+import json
 import os
 from pathlib import Path
 import subprocess
-from typing import Literal, Optional
-import typing
+import time
+from typing import Literal, Optional, List, get_args
 
 import numpy as np
 from tabulate import tabulate
 
 
-Mode = Literal["serial", "openmp", "mpi", "cuda"]
+ParallelisationSchemes = Literal["serial", "openmp", "mpi", "cuda"]
 
 
 class SplitStrArgs(Action):
@@ -32,6 +34,7 @@ class Binary:
     path: Path
     benchmark: str
     variant: int
+    n: int
     scheme: ParallelisationSchemes
 
 
@@ -45,26 +48,34 @@ class Result:
     max: float
     median: float
     std: float
-    data: str
+    data: List[str]
 
 
 def get_script_dir() -> Path:
     return Path(os.path.realpath(__file__)).parent
 
 
+def get_benchmark_dir(benchmark: str) -> Path:
+    return get_script_dir() / benchmark
+
+
+def get_variant_dir(benchmark: str, variant: str) -> Path:
+    return get_benchmark_dir(benchmark) / f"v{variant}"
+
+
 def compile(benchmark: str, variant: str, cached_bins: bool, n: int) -> Binary:
     script_dir = get_script_dir()
     os.makedirs(script_dir / "bin", exist_ok=True)
-    bin_path = script_dir / "bin" / f"{benchmark}_{variant}"
+    bin_path = script_dir / "bin" / f"{benchmark}_{variant}_{n}"
 
     pb_generic_compunits = (script_dir / "polybench.c",)
-    benchmark_dir = script_dir / benchmark
+    benchmark_dir = get_benchmark_dir(benchmark)
     assert benchmark_dir.exists()
 
     scheme = variant.split("_")[-1]
-    assert scheme in typing.get_args(ParallelisationSchemes)
+    assert scheme in get_args(ParallelisationSchemes)
 
-    variant_dir = benchmark_dir / f"v{variant}"
+    variant_dir = get_variant_dir(benchmark, variant)
     assert variant_dir.exists()
 
     compunit_filter = lambda files: filter(lambda fp: fp.suffix in (".c", ".cu"), files)
@@ -73,7 +84,7 @@ def compile(benchmark: str, variant: str, cached_bins: bool, n: int) -> Binary:
     compunits = itertools.chain(pb_generic_compunits, benchmark_files, variant_files)
 
     if cached_bins and bin_path.exists():
-        return Binary(bin_path, benchmark, variant, scheme)
+        return Binary(bin_path, benchmark, variant, n, scheme)
     args = [
         {
             "serial": "gcc",
@@ -103,7 +114,7 @@ def compile(benchmark: str, variant: str, cached_bins: bool, n: int) -> Binary:
         args.append("-ffast-math")
         args.append("-march=native")
     subprocess.check_call(args)
-    return Binary(bin_path, benchmark, variant, scheme)
+    return Binary(bin_path, benchmark, variant, n, scheme)
 
 
 def run(
@@ -111,11 +122,9 @@ def run(
     threads: int,
     runs: int,
     cached_results: bool,
-    ground_truth: Optional[Result] = None,
+    result_fp_fstring: Optional[str] = None,
+    ground_truth: Optional[str] = None,
 ) -> Result:
-    script_dir = get_script_dir()
-    results_dir = script_dir / "results"
-    os.makedirs(results_dir, exist_ok=True)
 
     # Find arguments for running the benchmark
     if binary.scheme == "mpi":
@@ -128,42 +137,62 @@ def run(
         args = [str(binary.path)]
         env = {}
 
-    # Read results from cache, if specified
-    results_filename = f"{binary.benchmark}_{binary.variant}_{threads}.log"
-    results_path = results_dir / results_filename
-    if cached_results and results_path.exists():
-        with open(results_path, "r") as results_file:
-            lines = results_file.readlines()
-            mean = float(lines.pop(0))
-            std = float(lines.pop(0))
-            output = "".join(lines)
-        return Result(binary.variant, binary.mode, threads, mean, std, output)
-
     # Run the benchmark
     results = []
-    output = ""
-    for _ in range(runs):
-        process = subprocess.Popen(
-            args, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
-        )
-        exit_code = process.wait()
-        if exit_code != 0:
-            raise ValueError(f"Exit code {exit_code} for {binary.path}")
-        if process.stdout is None:
-            raise ValueError("No process timing output found")
-        if process.stderr is None:
-            raise ValueError("No process data output found")
-        mean_time = float(process.stdout.read())
-        results.append(mean_time)
-        output = process.stderr.read()
-        if ground_truth is not None and ground_truth.data != output:
-            raise ValueError(f"Discrepancy between results - {binary.path}")
+    outputs = []
+    latest_results_path = Path(
+        f"{get_variant_dir(binary.benchmark, binary.variant)}/latest_{threads}.json"
+    )
 
-    # Write results to cache
-    with open(results_path, "w") as results_file:
-        results_file.write(f"{np.mean(results)}\n")
-        results_file.write(f"{np.std(results)}\n")
-        results_file.write(output)
+    # Read results from cache, if specified
+    cached_results_path = latest_results_path
+    if cached_results and cached_results_path.exists():
+        with open(cached_results_path, "r") as results_file:
+            results = json.load(results_file)
+    else:
+        # Run the benchmark
+
+        for _ in range(runs):
+            process = subprocess.Popen(
+                args, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+            )
+            exit_code = process.wait()
+            if exit_code != 0:
+                raise ValueError(f"Exit code {exit_code} for {binary.path}")
+            if process.stdout is None:
+                raise ValueError("No process timing output found")
+            if process.stderr is None:
+                raise ValueError("No process data output found")
+            results.append(float(process.stdout.read()))
+            outputs.append(process.stderr.read())
+            if ground_truth is not None and ground_truth != outputs[-1]:
+                print(outputs[-1])
+                raise ValueError(f"Discrepancy between results - {binary.path}")
+
+        if result_fp_fstring is not None:
+            curr_result_fp = Path(
+                result_fp_fstring.format(
+                    **locals()
+                    | {
+                        "ts": time.time(),
+                        "iso8601": datetime.datetime.now().isoformat(),
+                        "script_dir": get_script_dir(),
+                        "benchmark_dir": get_benchmark_dir(binary.benchmark),
+                        "variant_dir": get_variant_dir(
+                            binary.benchmark, binary.variant
+                        ),
+                    }
+                )
+            )
+            with open(
+                curr_result_fp,
+                "w+",
+            ) as result_json_file:
+                json.dump(results, result_json_file)
+
+            if latest_results_path.exists():
+                latest_results_path.unlink()
+            latest_results_path.symlink_to(curr_result_fp, target_is_directory=False)
 
     return Result(
         binary.variant,
@@ -174,7 +203,7 @@ def run(
         float(np.max(results)),
         float(np.median(results)),
         float(np.std(results)),
-        output,
+        outputs,
     )
 
 
@@ -213,17 +242,34 @@ if __name__ == "__main__":
         help="Do not run benchmarks if ran previously",
     )
 
+    parser.add_argument(
+        "--results_fstr",
+        type=str,
+        default="{variant_dir}/{iso8601}_{binary.n}_{threads}.json",
+        help="Format string for raw timing result JSON filepath",
+    )
+
     args = parser.parse_args()
     variants = set(args.variants)
+
+    ground_truth_bin = compile(args.benchmark, "0_serial", False, args.n)
+    ground_truth = run(ground_truth_bin, 1, 1, False)
+    ground_truth_data = ground_truth.data[0]
 
     binaries = [
         compile(args.benchmark, variant, args.cached_bins, args.n)
         for variant in variants
     ]
 
-    ground_truth = run(binaries.pop(0), 1, args.runs, args.cached_results)
     results = [
-        run(binary, thread_num, args.runs, args.cached_results, ground_truth)
+        run(
+            binary,
+            thread_num,
+            args.runs,
+            args.cached_results,
+            args.results_fstr,
+            ground_truth_data,
+        )
         for thread_num in args.threads
         for binary in binaries
     ]
@@ -247,11 +293,11 @@ if __name__ == "__main__":
                 "Variant",
                 "Parallelisation Scheme",
                 "Threads",
-                "Runtime (mean)",
+                "Mean",
                 "Min",
                 "Max",
                 "Median",
-                "Runtime (stdev)",
+                "Stdev",
             ],
         )
     )
