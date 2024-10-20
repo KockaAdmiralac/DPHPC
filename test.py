@@ -33,7 +33,7 @@ class SplitIntArgs(Action):
 class Binary:
     path: Path
     benchmark: str
-    variant: int
+    variant: str
     n: int
     scheme: ParallelisationScheme
 
@@ -285,7 +285,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     variants = set(args.variants)
 
-    ground_truth_bin = compile(args.benchmark, "0_serial", False, args.n)
+    ground_truth_bin = compile(args.benchmark, "base_serial", False, args.n)
     ground_truth = run(ground_truth_bin, 1, 1, False)
     ground_truth_data = ground_truth.data[0]
 

@@ -1,4 +1,3 @@
 results
 slurm-*.out
 bin/
-*/*/*.json
