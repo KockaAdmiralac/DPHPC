@@ -61,7 +61,7 @@ def get_benchmark_dir(benchmark: str) -> Path:
 
 
 def get_variant_dir(benchmark: str, variant: str) -> Path:
-    return get_benchmark_dir(benchmark) / f"v{variant}"
+    return get_benchmark_dir(benchmark) / variant
 
 
 def get_results_dir() -> Path:
@@ -69,7 +69,7 @@ def get_results_dir() -> Path:
 
 
 def get_results_variant_dir(benchmark: str, variant: str) -> Path:
-    return get_results_dir() / benchmark / f"v{variant}"
+    return get_results_dir() / benchmark / variant
 
 
 def compile(benchmark: str, variant: str, cached_bins: bool, n: int) -> Binary:
