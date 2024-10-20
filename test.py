@@ -166,8 +166,8 @@ def run(
         env = {}
 
     # Run the benchmark
-    results = []
-    outputs = []
+    timing_results = []
+    data_outputs = []
 
     # Read results from cache, if specified
     use_cached_results = latest_results_fstr is not None
@@ -178,7 +178,7 @@ def run(
 
     if use_cached_results and cached_results and cached_results_path.exists():
         with open(cached_results_path, "r") as results_file:
-            results = json.load(results_file)
+            timing_results = json.load(results_file)["timing"]
             used_cached_results = True
     else:
         # Run the benchmark
@@ -194,10 +194,10 @@ def run(
                 raise ValueError("No process timing output found")
             if process.stderr is None:
                 raise ValueError("No process data output found")
-            results.append(float(process.stdout.read()))
-            outputs.append(process.stderr.read())
-            if ground_truth is not None and ground_truth != outputs[-1]:
-                print(outputs[-1])
+            timing_results.append(float(process.stdout.read()))
+            data_outputs.append(process.stderr.read())
+            if ground_truth is not None and ground_truth != data_outputs[-1]:
+                print(data_outputs[-1])
                 raise ValueError(f"Discrepancy between results - {binary.path}")
 
         if result_fp_fstring is not None:
@@ -209,7 +209,8 @@ def run(
                 curr_result_fp,
                 "w+",
             ) as result_json_file:
-                json.dump(results, result_json_file)
+                dump_contents = {"timing": timing_results, "data": data_outputs}
+                json.dump(dump_contents, result_json_file)
 
             latest_results_parent = cached_results_path.parent
             if not latest_results_parent.exists():
@@ -222,13 +223,13 @@ def run(
         binary.variant,
         binary.scheme,
         threads,
-        float(np.mean(results)),
-        float(np.min(results)),
-        float(np.max(results)),
-        float(np.median(results)),
-        float(np.std(results)),
-        outputs,
-        used_cached_results
+        float(np.mean(timing_results)),
+        float(np.min(timing_results)),
+        float(np.max(timing_results)),
+        float(np.median(timing_results)),
+        float(np.std(timing_results)),
+        data_outputs,
+        used_cached_results,
     )
 
 
@@ -319,7 +320,7 @@ if __name__ == "__main__":
                     result.max,
                     result.median,
                     result.std,
-                    result.used_cached_results
+                    result.used_cached_results,
                 )
                 for result in [ground_truth] + results
             ],
@@ -332,7 +333,7 @@ if __name__ == "__main__":
                 "Max",
                 "Median",
                 "Stdev",
-                "Used cached results"
+                "Used cached results",
             ],
         )
     )
