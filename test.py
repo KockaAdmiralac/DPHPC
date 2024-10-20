@@ -8,13 +8,13 @@ import os
 from pathlib import Path
 import subprocess
 import time
-from typing import Literal, Optional, List, get_args
+from typing import Any, Literal, Optional, List, get_args
 
 import numpy as np
 from tabulate import tabulate
 
 
-ParallelisationSchemes = Literal["serial", "openmp", "mpi", "cuda"]
+ParallelisationScheme = Literal["serial", "openmp", "mpi", "cuda"]
 
 
 class SplitStrArgs(Action):
@@ -35,13 +35,13 @@ class Binary:
     benchmark: str
     variant: int
     n: int
-    scheme: ParallelisationSchemes
+    scheme: ParallelisationScheme
 
 
 @dataclass
 class Result:
     variant: int
-    scheme: ParallelisationSchemes
+    scheme: ParallelisationScheme
     threads: int
     mean: float
     min: float
@@ -49,6 +49,7 @@ class Result:
     median: float
     std: float
     data: List[str]
+    used_cached_results: bool
 
 
 def get_script_dir() -> Path:
@@ -63,6 +64,14 @@ def get_variant_dir(benchmark: str, variant: str) -> Path:
     return get_benchmark_dir(benchmark) / f"v{variant}"
 
 
+def get_results_dir() -> Path:
+    return get_script_dir() / "results"
+
+
+def get_results_variant_dir(benchmark: str, variant: str) -> Path:
+    return get_results_dir() / benchmark / f"v{variant}"
+
+
 def compile(benchmark: str, variant: str, cached_bins: bool, n: int) -> Binary:
     script_dir = get_script_dir()
     os.makedirs(script_dir / "bin", exist_ok=True)
@@ -73,7 +82,7 @@ def compile(benchmark: str, variant: str, cached_bins: bool, n: int) -> Binary:
     assert benchmark_dir.exists()
 
     scheme = variant.split("_")[-1]
-    assert scheme in get_args(ParallelisationSchemes)
+    assert scheme in get_args(ParallelisationScheme)
 
     variant_dir = get_variant_dir(benchmark, variant)
     assert variant_dir.exists()
@@ -117,12 +126,31 @@ def compile(benchmark: str, variant: str, cached_bins: bool, n: int) -> Binary:
     return Binary(bin_path, benchmark, variant, n, scheme)
 
 
+def format_fstr(loc: dict[str, Any], fstr: str) -> str:
+    return fstr.format(
+        **loc
+        | {
+            "ts": time.time(),
+            "iso8601": datetime.datetime.now().isoformat(),
+            "script_dir": get_script_dir(),
+            "benchmark_dir": get_benchmark_dir(loc["binary"].benchmark),
+            "variant_dir": get_variant_dir(
+                loc["binary"].benchmark, loc["binary"].variant
+            ),
+            "results_variant_dir": get_results_variant_dir(
+                loc["binary"].benchmark, loc["binary"].variant
+            ),
+        }
+    )
+
+
 def run(
     binary: Binary,
     threads: int,
     runs: int,
     cached_results: bool,
     result_fp_fstring: Optional[str] = None,
+    latest_results_fstr: Optional[str] = None,
     ground_truth: Optional[str] = None,
 ) -> Result:
 
@@ -140,15 +168,18 @@ def run(
     # Run the benchmark
     results = []
     outputs = []
-    latest_results_path = Path(
-        f"{get_variant_dir(binary.benchmark, binary.variant)}/latest_{threads}.json"
-    )
 
     # Read results from cache, if specified
-    cached_results_path = latest_results_path
-    if cached_results and cached_results_path.exists():
+    use_cached_results = latest_results_fstr is not None
+    if use_cached_results:  # done to prevent giving None to format_fstr
+        cached_results_path = Path(format_fstr(locals(), latest_results_fstr))
+
+    used_cached_results = False
+
+    if use_cached_results and cached_results and cached_results_path.exists():
         with open(cached_results_path, "r") as results_file:
             results = json.load(results_file)
+            used_cached_results = True
     else:
         # Run the benchmark
 
@@ -170,29 +201,22 @@ def run(
                 raise ValueError(f"Discrepancy between results - {binary.path}")
 
         if result_fp_fstring is not None:
-            curr_result_fp = Path(
-                result_fp_fstring.format(
-                    **locals()
-                    | {
-                        "ts": time.time(),
-                        "iso8601": datetime.datetime.now().isoformat(),
-                        "script_dir": get_script_dir(),
-                        "benchmark_dir": get_benchmark_dir(binary.benchmark),
-                        "variant_dir": get_variant_dir(
-                            binary.benchmark, binary.variant
-                        ),
-                    }
-                )
-            )
+            curr_result_fp = Path(format_fstr(locals(), result_fp_fstring))
+            result_path_dir = curr_result_fp.parent
+            if not result_path_dir.exists():
+                os.makedirs(result_path_dir, exist_ok=True)
             with open(
                 curr_result_fp,
                 "w+",
             ) as result_json_file:
                 json.dump(results, result_json_file)
 
-            if latest_results_path.exists():
-                latest_results_path.unlink()
-            latest_results_path.symlink_to(curr_result_fp, target_is_directory=False)
+            latest_results_parent = cached_results_path.parent
+            if not latest_results_parent.exists():
+                os.makedirs(cached_results_path)
+            if cached_results_path.exists():
+                cached_results_path.unlink()
+            cached_results_path.symlink_to(curr_result_fp, target_is_directory=False)
 
     return Result(
         binary.variant,
@@ -204,6 +228,7 @@ def run(
         float(np.median(results)),
         float(np.std(results)),
         outputs,
+        used_cached_results
     )
 
 
@@ -245,7 +270,14 @@ if __name__ == "__main__":
     parser.add_argument(
         "--results_fstr",
         type=str,
-        default="{variant_dir}/{iso8601}_{binary.n}_{threads}.json",
+        default="{results_variant_dir}/{iso8601}_{binary.n}_{threads}.json",
+        help="Format string for raw timing result JSON filepath",
+    )
+
+    parser.add_argument(
+        "--latest_results_fstr",
+        type=str,
+        default="{results_variant_dir}/latest_{binary.n}_{threads}.json",
         help="Format string for raw timing result JSON filepath",
     )
 
@@ -268,6 +300,7 @@ if __name__ == "__main__":
             args.runs,
             args.cached_results,
             args.results_fstr,
+            args.latest_results_fstr,
             ground_truth_data,
         )
         for thread_num in args.threads
@@ -286,6 +319,7 @@ if __name__ == "__main__":
                     result.max,
                     result.median,
                     result.std,
+                    result.used_cached_results
                 )
                 for result in [ground_truth] + results
             ],
@@ -298,6 +332,7 @@ if __name__ == "__main__":
                 "Max",
                 "Median",
                 "Stdev",
+                "Used cached results"
             ],
         )
     )
