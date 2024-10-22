@@ -168,12 +168,23 @@ def compile(
         opt.extra_compile_options if opt.extra_compile_options is not None else []
     )
     args = [
-        {
-            "serial": "gcc",
-            "openmp": "gcc",
-            "mpi": "mpicc",
-            "cuda": "nvcc",
+        *{
+            "serial": ("g++",),
+            "openmp": ("gcc",),
+            "mpi": ("mpicc",),
+            "cuda": (
+                "docker",
+                "run",
+                "-it",
+                "--rm",
+                "--mount",
+                "type=bind,src=/home/paolo/repos/ethz/dphpc/dphpc-project,target=/project",
+                "dphpc-cuda:8.0-devel-ubuntu16.04",
+                "nvcc",
+                "-Wno-deprecated-gpu-targets",
+            ),
         }[scheme],
+        "-std=c++11",
         "-O3",
         "-o",
         str(bin_path),
@@ -184,13 +195,18 @@ def compile(
         *defines_args,
         *extra_options,
     ] + list(map(str, compunits))
-    if scheme != "cuda":
-        args.extend(("-Wall", "-Wextra"))
+    if scheme == "cuda":
+        args.extend(
+            (
+                "--use_fast_math",
+                "-DCUDA_MODE",
+            )
+        )
+    else:
+        args.extend(("-Wall", "-Wextra", "-ffast-math", "-march=native"))
     if scheme == "openmp":
         args.append("-fopenmp")
-    if scheme != "cuda":
-        args.append("-ffast-math")
-        args.append("-march=native")
+
     print(" ".join(args))
     subprocess.check_call(args)
     return Binary(bin_path, benchmark, variant, opt, scheme, defines)
