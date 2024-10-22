@@ -33,6 +33,8 @@ def parse_str_dump_to_arrays(raw_str: str) -> ParsedOutputData:
             ret[curr_arr_name] = np.concatenate(temp_arrays)
         else:
             temp_arrays.append(np.fromstring(line, sep=" "))
+    if not len(ret):
+        raise IndexError("There are no arrays to be parsed, something's wrong")
     return ret
 
 
@@ -151,7 +153,7 @@ def compare_results(
                     truth_arr,
                 )
             return np.array((1,))
-    return np.concatenate(deviation_runs)
+    return np.concatenate(deviation_runs) if len(deviation_runs) else np.empty((1,))
 
 
 if __name__ == "__main__":
