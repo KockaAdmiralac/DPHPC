@@ -77,4 +77,11 @@
 #  define POW_FUN(x,y) pow(x,y)
 # endif
 
+void kernel_adi(int tsteps, int n, DATA_TYPE POLYBENCH_2D(u, N, N, n, n),
+                DATA_TYPE
+                POLYBENCH_2D(v, N, N, n, n),
+                DATA_TYPE POLYBENCH_2D(p, N, N, n, n),
+                DATA_TYPE
+                POLYBENCH_2D(q, N, N, n, n));
+
 #endif /* !_ADI_H */
