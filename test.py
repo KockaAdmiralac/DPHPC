@@ -72,7 +72,7 @@ def get_results_variant_dir(benchmark: str, variant: str) -> Path:
     return get_results_dir() / benchmark / variant
 
 
-def compile(benchmark: str, variant: str, cached_bins: bool, n: int) -> Binary:
+def compile(benchmark: str, variant: str, cached_bins: bool, n: int, tsteps: int) -> Binary:
     script_dir = get_script_dir()
     os.makedirs(script_dir / "bin", exist_ok=True)
     bin_path = script_dir / "bin" / f"{benchmark}_{variant}_{n}"
@@ -114,6 +114,7 @@ def compile(benchmark: str, variant: str, cached_bins: bool, n: int) -> Binary:
         "-DPOLYBENCH_TIME",
         "-DPOLYBENCH_DUMP_ARRAYS",
         f"-DN={n}",
+        f"-DTSTEPS={tsteps}",
     ] + list(map(str, compunits))
     if scheme != "cuda":
         args.extend(("-Wall","-Wextra"))
@@ -254,7 +255,10 @@ if __name__ == "__main__":
         "--runs", type=int, default=10, help="The number of runs to perform"
     )
     parser.add_argument(
-        "--n", type=int, default=4000, help="The number passed as N to the kernel"
+        "--n", type=int, default=400, help="The number passed as N to the kernel"
+    )
+    parser.add_argument(
+        "--tsteps", type=int, default=100, help="The number passed as TSTEPS to the kernel"
     )
     parser.add_argument(
         "--cached_bins",
@@ -286,12 +290,12 @@ if __name__ == "__main__":
     args = parser.parse_args()
     variants = set(args.variants)
 
-    ground_truth_bin = compile(args.benchmark, "serial_base", False, args.n)
+    ground_truth_bin = compile(args.benchmark, "serial_base", False, args.n, args.tsteps)
     ground_truth = run(ground_truth_bin, 1, 1, False)
     ground_truth_data = ground_truth.data[0]
 
     binaries = [
-        compile(args.benchmark, variant, args.cached_bins, args.n)
+        compile(args.benchmark, variant, args.cached_bins, args.n, args.tsteps)
         for variant in variants
     ]
 
