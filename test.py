@@ -81,7 +81,7 @@ def compile(benchmark: str, variant: str, cached_bins: bool, n: int) -> Binary:
     benchmark_dir = get_benchmark_dir(benchmark)
     assert benchmark_dir.exists()
 
-    scheme = variant.split("_")[-1]
+    scheme = variant.split("_")[0]
     assert scheme in get_args(ParallelisationScheme)
 
     variant_dir = get_variant_dir(benchmark, variant)
@@ -101,8 +101,6 @@ def compile(benchmark: str, variant: str, cached_bins: bool, n: int) -> Binary:
             "mpi": "mpicc",
             "cuda": "nvcc",
         }[scheme],
-        "-Wall",
-        "-Wextra",
         # '-fsanitize=address',
         # '-fsanitize=undefined',
         # '-fsanitize=leak',
@@ -117,11 +115,14 @@ def compile(benchmark: str, variant: str, cached_bins: bool, n: int) -> Binary:
         "-DPOLYBENCH_DUMP_ARRAYS",
         f"-DN={n}",
     ] + list(map(str, compunits))
+    if scheme != "cuda":
+        args.extend(("-Wall","-Wextra"))
     if scheme == "openmp":
         args.append("-fopenmp")
     if scheme != "cuda":
         args.append("-ffast-math")
         args.append("-march=native")
+    print(' '.join(args))
     subprocess.check_call(args)
     return Binary(bin_path, benchmark, variant, n, scheme)
 
@@ -285,7 +286,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     variants = set(args.variants)
 
-    ground_truth_bin = compile(args.benchmark, "base_serial", False, args.n)
+    ground_truth_bin = compile(args.benchmark, "serial_base", False, args.n)
     ground_truth = run(ground_truth_bin, 1, 1, False)
     ground_truth_data = ground_truth.data[0]
 
