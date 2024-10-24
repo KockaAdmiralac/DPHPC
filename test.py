@@ -35,6 +35,7 @@ class Binary:
     benchmark: str
     variant: str
     n: int
+    tsteps: int
     scheme: ParallelisationScheme
 
 
@@ -68,8 +69,12 @@ def get_results_dir() -> Path:
     return get_script_dir() / "results"
 
 
+def get_results_benchmark_dir(benchmark: str) -> Path:
+    return get_results_dir() / benchmark
+
+
 def get_results_variant_dir(benchmark: str, variant: str) -> Path:
-    return get_results_dir() / benchmark / variant
+    return get_results_benchmark_dir(benchmark) / variant
 
 
 def compile(
@@ -95,7 +100,7 @@ def compile(
     compunits = itertools.chain(pb_generic_compunits, benchmark_files, variant_files)
 
     if cached_bins and bin_path.exists():
-        return Binary(bin_path, benchmark, variant, n, scheme)
+        return Binary(bin_path, benchmark, variant, n, tsteps, scheme)
     args = [
         {
             "serial": "gcc",
@@ -127,7 +132,7 @@ def compile(
         args.append("-march=native")
     print(" ".join(args))
     subprocess.check_call(args)
-    return Binary(bin_path, benchmark, variant, n, scheme)
+    return Binary(bin_path, benchmark, variant, n, tsteps, scheme)
 
 
 def format_fstr(loc: dict[str, Any], fstr: str) -> str:
@@ -141,6 +146,7 @@ def format_fstr(loc: dict[str, Any], fstr: str) -> str:
             "variant_dir": get_variant_dir(
                 loc["binary"].benchmark, loc["binary"].variant
             ),
+            "results_benchmark_dir": get_results_benchmark_dir(loc["binary"].benchmark),
             "results_variant_dir": get_results_variant_dir(
                 loc["binary"].benchmark, loc["binary"].variant
             ),
@@ -156,6 +162,8 @@ def run(
     result_fp_fstring: Optional[str] = None,
     latest_results_fstr: Optional[str] = None,
     ground_truth: Optional[str] = None,
+    ground_truth_out_fstr: Optional[str] = None,
+    failed_data_out_fstr: Optional[str] = None,
 ) -> Result:
 
     # Find arguments for running the benchmark
@@ -200,15 +208,27 @@ def run(
                 raise ValueError("No process data output found")
             timing_results.append(float(process.stdout.read()))
             data_outputs.append(process.stderr.read())
+            if binary.variant == "serial_base" and ground_truth_out_fstr is not None:
+                truth_out_fp = format_and_provide_outpath(
+                    locals(), ground_truth_out_fstr
+                )
+                with open(truth_out_fp, "w+") as truth_out:
+                    truth_out.write(data_outputs[-1])
+                print(f"Wrote ground truth data to {truth_out_fp}")
             if ground_truth is not None and ground_truth != data_outputs[-1]:
-                print(data_outputs[-1])
+                if failed_data_out_fstr is not None:
+                    failed_out_fp = format_and_provide_outpath(
+                        locals(), failed_data_out_fstr
+                    )
+                    with open(failed_out_fp, "w+") as failed_out:
+                        failed_out.write(data_outputs[-1])
+                    print(f"Wrote bad data to {failed_out_fp}")
+                else:
+                    print(data_outputs[-1])
                 raise ValueError(f"Discrepancy between results - {binary.path}")
 
         if result_fp_fstring is not None:
-            curr_result_fp = Path(format_fstr(locals(), result_fp_fstring))
-            result_path_dir = curr_result_fp.parent
-            if not result_path_dir.exists():
-                os.makedirs(result_path_dir, exist_ok=True)
+            curr_result_fp = format_and_provide_outpath(locals(), result_fp_fstring)
             with open(
                 curr_result_fp,
                 "w+",
@@ -235,6 +255,14 @@ def run(
         data_outputs,
         used_cached_results,
     )
+
+
+def format_and_provide_outpath(loc, result_fp_fstring):
+    fp = Path(format_fstr(loc, result_fp_fstring))
+    parent_dir = fp.parent
+    if not parent_dir.exists():
+        os.makedirs(parent_dir, exist_ok=True)
+    return fp
 
 
 if __name__ == "__main__":
@@ -281,15 +309,29 @@ if __name__ == "__main__":
     parser.add_argument(
         "--results_fstr",
         type=str,
-        default="{results_variant_dir}/{iso8601}_{binary.n}_{threads}.json",
+        default="{results_variant_dir}/{iso8601}_{binary.n}_{binary.tsteps}_{threads}.json",
         help="Format string for raw timing result JSON filepath",
     )
 
     parser.add_argument(
         "--latest_results_fstr",
         type=str,
-        default="{results_variant_dir}/latest_{binary.n}_{threads}.json",
+        default="{results_variant_dir}/latest_{binary.n}_{binary.tsteps}_{threads}.json",
         help="Format string for raw timing result JSON filepath",
+    )
+
+    parser.add_argument(
+        "--ground_truth_out_fstr",
+        type=str,
+        default="{results_benchmark_dir}/{binary.n}_{binary.tsteps}_truth",
+        help="Format string for raw output from the ground truth case",
+    )
+
+    parser.add_argument(
+        "--failed_data_out_fstr",
+        type=str,
+        default="{results_variant_dir}/failed_{binary.n}_{binary.tsteps}_{threads}",
+        help="Format string for raw output from a failed run",
     )
 
     args = parser.parse_args()
@@ -298,7 +340,9 @@ if __name__ == "__main__":
     ground_truth_bin = compile(
         args.benchmark, "serial_base", False, args.n, args.tsteps
     )
-    ground_truth = run(ground_truth_bin, 1, 1, False)
+    ground_truth = run(
+        ground_truth_bin, 1, 1, False, ground_truth_out_fstr=args.ground_truth_out_fstr
+    )
     ground_truth_data = ground_truth.data[0]
 
     binaries = [
@@ -315,6 +359,7 @@ if __name__ == "__main__":
             args.results_fstr,
             args.latest_results_fstr,
             ground_truth_data,
+            failed_data_out_fstr=args.failed_data_out_fstr,
         )
         for thread_num in args.threads
         for binary in binaries
