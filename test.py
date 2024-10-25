@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 from argparse import ArgumentParser, Action
+from copy import deepcopy
 from dataclasses import dataclass
 import datetime
 import itertools
@@ -13,6 +14,7 @@ from typing import Any, Literal, Optional, List, get_args
 import numpy as np
 from tabulate import tabulate
 
+import options
 
 ParallelisationScheme = Literal["serial", "openmp", "mpi", "cuda"]
 
@@ -34,9 +36,9 @@ class Binary:
     path: Path
     benchmark: str
     variant: str
-    n: int
-    tsteps: int
+    opts: options.Options
     scheme: ParallelisationScheme
+    defines: dict[str, str]
 
 
 @dataclass
@@ -78,11 +80,9 @@ def get_results_variant_dir(benchmark: str, variant: str) -> Path:
 
 
 def compile(
-    benchmark: str, variant: str, cached_bins: bool, n: int, tsteps: int
+    benchmark: str, variant: str, cached_bins: bool, defines: dict[str, str]
 ) -> Binary:
     script_dir = get_script_dir()
-    os.makedirs(script_dir / "bin", exist_ok=True)
-    bin_path = script_dir / "bin" / f"{benchmark}_{variant}_{n}"
 
     pb_generic_compunits = (script_dir / "polybench.c",)
     benchmark_dir = get_benchmark_dir(benchmark)
@@ -94,13 +94,38 @@ def compile(
     variant_dir = get_variant_dir(benchmark, variant)
     assert variant_dir.exists()
 
+    opt = options.options_from_multiple_files(
+        filter(
+            Path.exists,
+            (
+                script_dir / "dphpc_md.json",
+                benchmark_dir / "dphpc_md.json",
+                variant_dir / "dphpc_md.json",
+            ),
+        )
+    )
+
+    merged_defines = deepcopy(opt.defines)
+    merged_defines.update(
+        defines
+    )  # manually provided defines via CLI override ones in JSON
+
+    os.makedirs(script_dir / "bin", exist_ok=True)
+    bin_path = (
+        script_dir / "bin" / f"{benchmark}_{variant}_{serialise_defines(defines)}"
+    )
+
     compunit_filter = lambda files: filter(lambda fp: fp.suffix in (".c", ".cu"), files)
     benchmark_files = compunit_filter(benchmark_dir.iterdir())
     variant_files = compunit_filter(variant_dir.iterdir())
     compunits = itertools.chain(pb_generic_compunits, benchmark_files, variant_files)
 
     if cached_bins and bin_path.exists():
-        return Binary(bin_path, benchmark, variant, n, tsteps, scheme)
+        return Binary(bin_path, benchmark, variant, opt, scheme, defines)
+
+    defines_args = map(
+        lambda it: f"-D{it[0]}={it[1]}".rstrip("="), merged_defines.items()
+    )  # rstrip makes sure defines without values don't have =
     args = [
         {
             "serial": "gcc",
@@ -108,9 +133,6 @@ def compile(
             "mpi": "mpicc",
             "cuda": "nvcc",
         }[scheme],
-        # '-fsanitize=address',
-        # '-fsanitize=undefined',
-        # '-fsanitize=leak',
         "-O3",
         "-o",
         str(bin_path),
@@ -118,10 +140,7 @@ def compile(
         str(script_dir),
         "-I",
         str(benchmark_dir),
-        "-DPOLYBENCH_TIME",
-        "-DPOLYBENCH_DUMP_ARRAYS",
-        f"-DN={n}",
-        f"-DTSTEPS={tsteps}",
+        *defines_args,
     ] + list(map(str, compunits))
     if scheme != "cuda":
         args.extend(("-Wall", "-Wextra"))
@@ -132,26 +151,41 @@ def compile(
         args.append("-march=native")
     print(" ".join(args))
     subprocess.check_call(args)
-    return Binary(bin_path, benchmark, variant, n, tsteps, scheme)
+    return Binary(bin_path, benchmark, variant, opt, scheme, defines)
 
 
 def format_fstr(loc: dict[str, Any], fstr: str) -> str:
-    return fstr.format(
-        **loc
-        | {
-            "ts": time.time(),
-            "iso8601": datetime.datetime.now().isoformat(),
-            "script_dir": get_script_dir(),
-            "benchmark_dir": get_benchmark_dir(loc["binary"].benchmark),
-            "variant_dir": get_variant_dir(
-                loc["binary"].benchmark, loc["binary"].variant
-            ),
-            "results_benchmark_dir": get_results_benchmark_dir(loc["binary"].benchmark),
-            "results_variant_dir": get_results_variant_dir(
-                loc["binary"].benchmark, loc["binary"].variant
-            ),
-        }
-    )
+    helper_dict = {
+        "ts": time.time(),
+        "iso8601": datetime.datetime.now().isoformat(),
+        "script_dir": get_script_dir(),
+    }
+    if "binary" in loc:
+        helper_dict.update(
+            {
+                "benchmark_dir": get_benchmark_dir(loc["binary"].benchmark),
+                "variant_dir": get_variant_dir(
+                    loc["binary"].benchmark, loc["binary"].variant
+                ),
+                "results_benchmark_dir": get_results_benchmark_dir(
+                    loc["binary"].benchmark
+                ),
+                "results_variant_dir": get_results_variant_dir(
+                    loc["binary"].benchmark, loc["binary"].variant
+                ),
+            }
+        )
+    if "defines" in loc:
+        helper_dict.update(
+            {
+                "ser_defines": serialise_defines(loc["defines"]),
+            }
+        )
+    return fstr.format(**loc | helper_dict)
+
+
+def serialise_defines(defines: dict[str, str]) -> str:
+    return "".join(map(lambda it: it[0] + it[1], defines.items()))
 
 
 def run(
@@ -165,6 +199,8 @@ def run(
     ground_truth_out_fstr: Optional[str] = None,
     failed_data_out_fstr: Optional[str] = None,
 ) -> Result:
+
+    defines = binary.defines  # needed for format_fstr later
 
     # Find arguments for running the benchmark
     if binary.scheme == "mpi":
@@ -285,13 +321,10 @@ if __name__ == "__main__":
         "--runs", type=int, default=10, help="The number of runs to perform"
     )
     parser.add_argument(
-        "--n", type=int, default=400, help="The number passed as N to the kernel"
-    )
-    parser.add_argument(
-        "--tsteps",
-        type=int,
-        default=100,
-        help="The number passed as TSTEPS to the kernel",
+        "--set_defines",
+        type=str,
+        required=True,
+        help="Set defines yourself, notably N/TSTEPS.  Comma-separated and mandatory =",
     )
     parser.add_argument(
         "--cached_bins",
@@ -309,44 +342,44 @@ if __name__ == "__main__":
     parser.add_argument(
         "--results_fstr",
         type=str,
-        default="{results_variant_dir}/{iso8601}_{binary.n}_{binary.tsteps}_{threads}.json",
+        default="{results_variant_dir}/{iso8601}_{ser_defines}_{threads}.json",
         help="Format string for raw timing result JSON filepath",
     )
 
     parser.add_argument(
         "--latest_results_fstr",
         type=str,
-        default="{results_variant_dir}/latest_{binary.n}_{binary.tsteps}_{threads}.json",
+        default="{results_variant_dir}/latest_{ser_defines}_{threads}.json",
         help="Format string for raw timing result JSON filepath",
     )
 
     parser.add_argument(
         "--ground_truth_out_fstr",
         type=str,
-        default="{results_benchmark_dir}/{binary.n}_{binary.tsteps}_truth",
+        default="{results_benchmark_dir}/{ser_defines}_truth",
         help="Format string for raw output from the ground truth case",
     )
 
     parser.add_argument(
         "--failed_data_out_fstr",
         type=str,
-        default="{results_variant_dir}/failed_{binary.n}_{binary.tsteps}_{threads}",
+        default="{results_variant_dir}/failed_{ser_defines}_{threads}",
         help="Format string for raw output from a failed run",
     )
 
     args = parser.parse_args()
     variants = set(args.variants)
 
-    ground_truth_bin = compile(
-        args.benchmark, "serial_base", False, args.n, args.tsteps
-    )
+    defines = dict([x.split("=")[:2] for x in args.set_defines.split(",")])
+
+    ground_truth_bin = compile(args.benchmark, "serial_base", False, defines)
     ground_truth = run(
         ground_truth_bin, 1, 1, False, ground_truth_out_fstr=args.ground_truth_out_fstr
     )
     ground_truth_data = ground_truth.data[0]
 
     binaries = [
-        compile(args.benchmark, variant, args.cached_bins, args.n, args.tsteps)
+        compile(args.benchmark, variant, args.cached_bins, defines)
         for variant in variants
     ]
 
