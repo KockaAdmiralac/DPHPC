@@ -14,6 +14,7 @@ from typing import Any, Literal, Optional, List, get_args
 import numpy as np
 from tabulate import tabulate
 
+import datacheck
 import options
 
 ParallelisationScheme = Literal["serial", "openmp", "mpi", "cuda"]
@@ -51,6 +52,11 @@ class Result:
     max: float
     median: float
     std: float
+    mean_deviation: float
+    min_deviation: float
+    max_deviation: float
+    median_deviation: float
+    std_deviation: float
     data: List[str]
     used_cached_results: bool
 
@@ -220,6 +226,7 @@ def run(
     # Run the benchmark
     timing_results = []
     data_outputs = []
+    deviations = []
 
     # Read results from cache, if specified
     use_cached_results = latest_results_fstr is not None
@@ -255,17 +262,28 @@ def run(
                 with open(truth_out_fp, "w+") as truth_out:
                     truth_out.write(data_outputs[-1])
                 print(f"Wrote ground truth data to {truth_out_fp}")
-            if ground_truth is not None and ground_truth != data_outputs[-1]:
-                if failed_data_out_fstr is not None:
-                    failed_out_fp = format_and_provide_outpath(
-                        locals(), failed_data_out_fstr
+            if ground_truth is not None:
+                try:
+                    deviations.extend(
+                        datacheck.compare_results_from_raw(
+                            ground_truth,
+                            data_outputs[-1],
+                            mode=binary.opts.data_check,
+                            max_deviation=binary.opts.max_deviation,
+                        )
                     )
-                    with open(failed_out_fp, "w+") as failed_out:
-                        failed_out.write(data_outputs[-1])
-                    print(f"Wrote bad data to {failed_out_fp}")
-                else:
-                    print(data_outputs[-1])
-                raise ValueError(f"Discrepancy between results - {binary.path}")
+                except Exception as match_err:
+                    if failed_data_out_fstr is not None:
+                        failed_out_fp = format_and_provide_outpath(
+                            locals(), failed_data_out_fstr
+                        )
+                        with open(failed_out_fp, "w+") as failed_out:
+                            failed_out.write(data_outputs[-1])
+                        print(f"Wrote bad data to {failed_out_fp}")
+                    else:
+                        print(data_outputs[-1])
+                    print(f"Discrepancy between results - {binary.path}")
+                    raise match_err
 
         if result_fp_fstring is not None:
             curr_result_fp = format_and_provide_outpath(locals(), result_fp_fstring)
@@ -273,7 +291,11 @@ def run(
                 curr_result_fp,
                 "w+",
             ) as result_json_file:
-                dump_contents = {"timing": timing_results, "data": data_outputs}
+                dump_contents = {
+                    "timing": timing_results,
+                    "deviations": deviations,
+                    "data": data_outputs,
+                }
                 json.dump(dump_contents, result_json_file)
 
             latest_results_parent = cached_results_path.parent
@@ -283,6 +305,10 @@ def run(
                 cached_results_path.unlink()
             cached_results_path.symlink_to(curr_result_fp, target_is_directory=False)
 
+    if deviations == []:
+        deviations = (
+            0,
+        )  # just here to prevent np complaining when running base case aka without ground truth yet.
     return Result(
         binary.variant,
         binary.scheme,
@@ -292,6 +318,11 @@ def run(
         float(np.max(timing_results)),
         float(np.median(timing_results)),
         float(np.std(timing_results)),
+        float(np.mean(deviations)),
+        float(np.min(deviations)),
+        float(np.max(deviations)),
+        float(np.median(deviations)),
+        float(np.std(deviations)),
         data_outputs,
         used_cached_results,
     )
@@ -414,6 +445,11 @@ if __name__ == "__main__":
                     result.max,
                     result.median,
                     result.std,
+                    result.mean_deviation,
+                    result.min_deviation,
+                    result.max_deviation,
+                    result.median_deviation,
+                    result.std_deviation,
                     result.used_cached_results,
                 )
                 for result in [ground_truth] + results
@@ -422,11 +458,16 @@ if __name__ == "__main__":
                 "Variant",
                 "Parallelisation Scheme",
                 "Threads",
-                "Mean",
-                "Min",
-                "Max",
-                "Median",
-                "Stdev",
+                "Mean time",
+                "Min time",
+                "Max time",
+                "Median time",
+                "Stdev time",
+                "Mean dev",
+                "Min dev",
+                "Max dev",
+                "Median dev",
+                "Stdev dev",
                 "Used cached results",
             ],
         )
