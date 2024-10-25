@@ -57,7 +57,7 @@ class Result:
     max_deviation: float
     median_deviation: float
     std_deviation: float
-    data: List[str]
+    data: List[datacheck.ParsedOutputData]
     used_cached_results: bool
 
 
@@ -183,6 +183,7 @@ def format_fstr(loc: dict[str, Any], fstr: str) -> str:
                 "results_variant_dir": get_results_variant_dir(
                     loc["binary"].benchmark, loc["binary"].variant
                 ),
+                "ser_defines": serialise_defines(loc["binary"].defines),
             }
         )
     if "defines" in loc:
@@ -198,20 +199,7 @@ def serialise_defines(defines: dict[str, str]) -> str:
     return "".join(map(lambda it: it[0] + it[1], defines.items()))
 
 
-def run(
-    binary: Binary,
-    threads: int,
-    runs: int,
-    cached_results: bool,
-    result_fp_fstring: Optional[str] = None,
-    latest_results_fstr: Optional[str] = None,
-    ground_truth: Optional[str] = None,
-    ground_truth_out_fstr: Optional[str] = None,
-    failed_data_out_fstr: Optional[str] = None,
-) -> Result:
-
-    defines = binary.defines  # needed for format_fstr later
-
+def lowlevel_run(binary: Binary, threads: int) -> tuple[float, str]:
     # Find arguments for running the benchmark
     if binary.scheme == "mpi":
         args = ["mpiexec", "-n", str(threads), str(binary.path)]
@@ -222,87 +210,148 @@ def run(
     else:
         args = [str(binary.path)]
         env = {}
+    process = subprocess.Popen(
+        args, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+    )
+    (stdout, str_data) = process.communicate()
+    exit_code = process.returncode
+    if exit_code != 0:
+        raise ValueError(f"Exit code {exit_code} for {binary.path}")
+    time_taken = float(stdout)
+    return (time_taken, str_data)
+
+
+def check_results_or_log_failure(
+    binary: Binary,
+    threads: int,
+    ground_truth: datacheck.ParsedOutputData,
+    failed_data_out_fstr: str,
+    candidate_data: datacheck.ParsedOutputData,
+    deviations_log: list[np.ndarray[np.float64]],
+    str_data: str,
+) -> None:
+    try:
+        deviations_log = np.append(
+            deviations_log,
+            datacheck.compare_results(
+                ground_truth,
+                candidate_data,
+                mode=binary.opts.data_check,
+                max_deviation=binary.opts.max_deviation,
+            ),
+        )
+    except Exception as match_err:
+        if failed_data_out_fstr is not None:
+            failed_out_fp = format_and_provide_outpath(locals(), failed_data_out_fstr)
+            with open(failed_out_fp, "w+") as failed_out:
+                failed_out.write(str_data)
+            print(f"Wrote bad data to {failed_out_fp}")
+        else:
+            print(str_data)
+        print(f"Discrepancy between results - {binary.path}")
+        raise match_err
+
+
+def log_results(
+    binary: Binary,
+    threads: int,
+    result_fp_fstring: str,
+    timing_results: list[float],
+    data_outputs: list[datacheck.ParsedOutputData],
+    deviations: list[np.ndarray[np.float64]],
+    cached_results_path: str,
+) -> None:
+    curr_result_fp = format_and_provide_outpath(locals(), result_fp_fstring)
+    with open(
+        curr_result_fp,
+        "w+",
+    ) as result_json_file:
+        dump_contents = {
+            "timing": timing_results,
+            "deviations": deviations.tolist(),
+            "data": [datacheck.parsed_output_data_to_py(o) for o in data_outputs],
+        }
+        json.dump(dump_contents, result_json_file)
+
+    latest_results_parent = cached_results_path.parent
+    if not latest_results_parent.exists():
+        os.makedirs(cached_results_path)
+    if cached_results_path.exists():
+        cached_results_path.unlink()
+    cached_results_path.symlink_to(curr_result_fp, target_is_directory=False)
+
+
+def run(
+    binary: Binary,
+    threads: int,
+    runs: int,
+    cached_results: bool,
+    result_fp_fstring: Optional[str] = None,
+    latest_results_fstr: Optional[str] = None,
+    ground_truth: Optional[datacheck.ParsedOutputData] = None,
+    ground_truth_out_fstr: Optional[str] = None,
+    failed_data_out_fstr: Optional[str] = None,
+) -> Result:
+
+    defines = binary.defines  # needed for format_fstr later
 
     # Run the benchmark
     timing_results = []
-    data_outputs = []
-    deviations = []
+    data_outputs: list[datacheck.ParsedOutputData] = []
+    deviations = np.empty(1)
 
     # Read results from cache, if specified
     use_cached_results = latest_results_fstr is not None
     if use_cached_results:  # done to prevent giving None to format_fstr
         cached_results_path = Path(format_fstr(locals(), latest_results_fstr))
 
-    used_cached_results = False
+    did_use_cached_results = (
+        use_cached_results and cached_results and cached_results_path.exists()
+    )
 
-    if use_cached_results and cached_results and cached_results_path.exists():
+    if did_use_cached_results:
         with open(cached_results_path, "r") as results_file:
             timing_results = json.load(results_file)["timing"]
-            used_cached_results = True
     else:
         # Run the benchmark
 
         for _ in range(runs):
-            process = subprocess.Popen(
-                args, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
-            )
-            (stdout, stderr) = process.communicate()
-            exit_code = process.returncode
-            if exit_code != 0:
-                raise ValueError(f"Exit code {exit_code} for {binary.path}")
-            timing_results.append(float(stdout))
-            data_outputs.append(stderr)
+
+            (time_taken, str_data) = lowlevel_run(binary, threads)
+
+            timing_results.append(time_taken)
+            data_outputs.append(datacheck.parse_dump_to_arrays(str_data))
             if binary.variant == "serial_base" and ground_truth_out_fstr is not None:
                 truth_out_fp = format_and_provide_outpath(
                     locals(), ground_truth_out_fstr
                 )
                 with open(truth_out_fp, "w+") as truth_out:
-                    truth_out.write(data_outputs[-1])
+                    truth_out.write(str_data)
                 print(f"Wrote ground truth data to {truth_out_fp}")
+
             if ground_truth is not None:
-                try:
-                    deviations.extend(
-                        datacheck.compare_results_from_raw(
-                            ground_truth,
-                            data_outputs[-1],
-                            mode=binary.opts.data_check,
-                            max_deviation=binary.opts.max_deviation,
-                        )
-                    )
-                except Exception as match_err:
-                    if failed_data_out_fstr is not None:
-                        failed_out_fp = format_and_provide_outpath(
-                            locals(), failed_data_out_fstr
-                        )
-                        with open(failed_out_fp, "w+") as failed_out:
-                            failed_out.write(data_outputs[-1])
-                        print(f"Wrote bad data to {failed_out_fp}")
-                    else:
-                        print(data_outputs[-1])
-                    print(f"Discrepancy between results - {binary.path}")
-                    raise match_err
+                check_results_or_log_failure(
+                    binary,
+                    threads,
+                    ground_truth,
+                    failed_data_out_fstr,
+                    data_outputs[-1],
+                    deviations,
+                    str_data,
+                )
 
         if result_fp_fstring is not None:
-            curr_result_fp = format_and_provide_outpath(locals(), result_fp_fstring)
-            with open(
-                curr_result_fp,
-                "w+",
-            ) as result_json_file:
-                dump_contents = {
-                    "timing": timing_results,
-                    "deviations": deviations,
-                    "data": data_outputs,
-                }
-                json.dump(dump_contents, result_json_file)
+            log_results(
+                binary,
+                threads,
+                result_fp_fstring,
+                timing_results,
+                data_outputs,
+                deviations,
+                cached_results_path,
+            )
 
-            latest_results_parent = cached_results_path.parent
-            if not latest_results_parent.exists():
-                os.makedirs(cached_results_path)
-            if cached_results_path.exists():
-                cached_results_path.unlink()
-            cached_results_path.symlink_to(curr_result_fp, target_is_directory=False)
-
-    if deviations == []:
+    if deviations == np.empty(1):
         deviations = (
             0,
         )  # just here to prevent np complaining when running base case aka without ground truth yet.
@@ -321,7 +370,7 @@ def run(
         float(np.median(deviations)),
         float(np.std(deviations)),
         data_outputs,
-        used_cached_results,
+        did_use_cached_results,
     )
 
 
@@ -421,10 +470,12 @@ if __name__ == "__main__":
             thread_num,
             args.runs,
             args.cached_results,
-            args.results_fstr,
-            args.latest_results_fstr,
+            args.results_fstr if args.results_fstr != "" else None,
+            args.latest_results_fstr if args.latest_results_fstr != "" else None,
             ground_truth_data,
-            failed_data_out_fstr=args.failed_data_out_fstr,
+            failed_data_out_fstr=(
+                args.failed_data_out_fstr if args.failed_data_out_fstr != "" else None
+            ),
         )
         for thread_num in args.threads
         for binary in binaries
