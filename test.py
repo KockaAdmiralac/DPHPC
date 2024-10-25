@@ -126,6 +126,9 @@ def compile(
     defines_args = map(
         lambda it: f"-D{it[0]}={it[1]}".rstrip("="), merged_defines.items()
     )  # rstrip makes sure defines without values don't have =
+    extra_options = (
+        opt.extra_compile_options if opt.extra_compile_options is not None else []
+    )
     args = [
         {
             "serial": "gcc",
@@ -141,6 +144,7 @@ def compile(
         "-I",
         str(benchmark_dir),
         *defines_args,
+        *extra_options,
     ] + list(map(str, compunits))
     if scheme != "cuda":
         args.extend(("-Wall", "-Wextra"))
