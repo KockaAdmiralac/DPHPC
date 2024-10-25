@@ -54,7 +54,7 @@ static void print_array(int n, DATA_TYPE POLYBENCH_1D(w, N, n), const char *arra
     POLYBENCH_DUMP_START;
     POLYBENCH_DUMP_BEGIN(array_name);
     for (i = 0; i < n; i++) {
-        if (i % 20 == 0) fprintf(POLYBENCH_DUMP_TARGET, "\n");
+        if (i == 0) fprintf(POLYBENCH_DUMP_TARGET, "\n");
         fprintf(POLYBENCH_DUMP_TARGET, DATA_PRINTF_MODIFIER, w[i]);
     }
     POLYBENCH_DUMP_END(array_name);

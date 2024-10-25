@@ -41,7 +41,7 @@ static void print_array(int n, DATA_TYPE POLYBENCH_2D(u, N, N, n, n), const char
     POLYBENCH_DUMP_BEGIN(arr_name);
     for (i = 0; i < n; i++)
         for (j = 0; j < n; j++) {
-            if ((i * n + j) % 20 == 0) fprintf(POLYBENCH_DUMP_TARGET, "\n");
+            if ((i * n + j) == 0) fprintf(POLYBENCH_DUMP_TARGET, "\n");
             fprintf(POLYBENCH_DUMP_TARGET, DATA_PRINTF_MODIFIER, u[i][j]);
         }
     POLYBENCH_DUMP_END(arr_name);
