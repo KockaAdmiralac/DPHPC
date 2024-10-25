@@ -246,15 +246,12 @@ def run(
             process = subprocess.Popen(
                 args, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
             )
-            exit_code = process.wait()
+            (stdout, stderr) = process.communicate()
+            exit_code = process.returncode
             if exit_code != 0:
                 raise ValueError(f"Exit code {exit_code} for {binary.path}")
-            if process.stdout is None:
-                raise ValueError("No process timing output found")
-            if process.stderr is None:
-                raise ValueError("No process data output found")
-            timing_results.append(float(process.stdout.read()))
-            data_outputs.append(process.stderr.read())
+            timing_results.append(float(stdout))
+            data_outputs.append(stderr)
             if binary.variant == "serial_base" and ground_truth_out_fstr is not None:
                 truth_out_fp = format_and_provide_outpath(
                     locals(), ground_truth_out_fstr
