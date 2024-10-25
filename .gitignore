@@ -1,3 +1,4 @@
 results
 slurm-*.out
 bin/
+__pycache__/

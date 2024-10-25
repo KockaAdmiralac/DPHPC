@@ -3,13 +3,15 @@ from dataclasses import dataclass
 import functools
 import json
 from pathlib import Path
-from typing import Any, List, Optional
+from typing import Any, List, Literal, Optional
 
 
 @dataclass
 class Options:
     defines: Optional[dict[str, str]] = None
     extra_compile_options: Optional[List[str]] = None
+    data_check: Optional[Literal["strict", "fuzzy"]] = None
+    max_deviation: Optional[float] = None
 
     def __getitem__(self, item: str) -> Any:
         return getattr(self, item)
@@ -18,7 +20,7 @@ class Options:
         setattr(self, item, value)
 
 
-DefaultOptions = Options(defines={}, extra_compile_options=[])
+DefaultOptions = Options(defines={}, extra_compile_options=[], data_check="strict")
 
 
 def options_from_file(fp: Path) -> Options:
