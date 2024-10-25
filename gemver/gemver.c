@@ -48,16 +48,16 @@ static void init_array(int n, DATA_TYPE *alpha, DATA_TYPE *beta, DATA_TYPE POLYB
 
 /* DCE code. Must scan the entire live-out data.
    Can be used also to check the correctness of the output. */
-static void print_array(int n, DATA_TYPE POLYBENCH_1D(w, N, n)) {
+static void print_array(int n, DATA_TYPE POLYBENCH_1D(w, N, n), const char *array_name) {
     int i;
 
     POLYBENCH_DUMP_START;
-    POLYBENCH_DUMP_BEGIN("w");
+    POLYBENCH_DUMP_BEGIN(array_name);
     for (i = 0; i < n; i++) {
         if (i % 20 == 0) fprintf(POLYBENCH_DUMP_TARGET, "\n");
         fprintf(POLYBENCH_DUMP_TARGET, DATA_PRINTF_MODIFIER, w[i]);
     }
-    POLYBENCH_DUMP_END("w");
+    POLYBENCH_DUMP_END(array_name);
     POLYBENCH_DUMP_FINISH;
 }
 
@@ -97,7 +97,9 @@ int main(int argc, char **argv) {
 
     /* Prevent dead-code elimination. All live-out data must be printed
        by the function call in argument. */
-    polybench_prevent_dce(print_array(n, POLYBENCH_ARRAY(w)));
+    polybench_prevent_dce(print_array(n, POLYBENCH_ARRAY(w), "w"));
+    polybench_prevent_dce(print_array(n * n, (double *)A, "A"));
+    polybench_prevent_dce(print_array(n, POLYBENCH_ARRAY(x), "x"));
 
     /* Be clean. */
     POLYBENCH_FREE_ARRAY(A);
