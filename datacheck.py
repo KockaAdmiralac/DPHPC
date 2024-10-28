@@ -1,11 +1,11 @@
 from itertools import starmap
 from timeit import timeit
 import numpy as np
-from typing import Literal
+from typing import Literal, Optional
 
 import argparse
 
-ParsedOutputData = dict[str, np.ndarray[np.float64]]
+ParsedOutputData = dict[str, np.ndarray]
 
 
 def parsed_output_data_to_py(i: ParsedOutputData) -> dict[str, list[float]]:
@@ -14,14 +14,15 @@ def parsed_output_data_to_py(i: ParsedOutputData) -> dict[str, list[float]]:
 
 def parse_dump_to_arrays(raw_str: str) -> ParsedOutputData:
     line_split = raw_str.splitlines()
-    ret: dict[str, np.array[np.float64]] = {}
-    curr_arr_name = None
+    ret: ParsedOutputData = {}
+    curr_arr_name: str = ""
+    temp_arrays: list[np.ndarray] = []
     for line_no, line in enumerate(line_split):
         if line == "==BEGIN DUMP_ARRAYS==":
             continue
         elif line.startswith("begin dump: "):
             curr_arr_name = line.split(": ")[1]
-            ret[curr_arr_name] = []
+            temp_arrays = []
         elif line == "==END   DUMP_ARRAYS==":
             continue
         elif line.startswith("end   dump: "):
@@ -29,10 +30,9 @@ def parse_dump_to_arrays(raw_str: str) -> ParsedOutputData:
                 raise ValueError(
                     f"Regex found an unmatched begin dump string at line {line_no}"
                 )
-            ret[curr_arr_name] = np.concatenate(ret[curr_arr_name])
+            ret[curr_arr_name] = np.concatenate(temp_arrays)
         else:
-            newarr = np.fromstring(line, sep=" ")
-            ret[curr_arr_name].append(newarr)
+            temp_arrays.append(np.fromstring(line, sep=" "))
     return ret
 
 
@@ -63,8 +63,8 @@ def compare_results(
     ground_truth: ParsedOutputData,
     candidate: ParsedOutputData,
     mode: Literal["strict", "fuzzy"],
-    max_deviation: float = None,
-) -> np.ndarray[np.float64]:
+    max_deviation: Optional[float] = None,
+) -> np.ndarray:
     if max_deviation is None:
         max_deviation = 0.015
     diff_keys = set(ground_truth.keys()).difference(candidate.keys())

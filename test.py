@@ -45,7 +45,7 @@ class Binary:
 
 @dataclass
 class Result:
-    variant: int
+    variant: str
     scheme: ParallelisationScheme
     threads: int
     mean: float
@@ -226,7 +226,7 @@ def check_results_or_log_failure(
     ground_truth: datacheck.ParsedOutputData,
     failed_data_out_fstr: str,
     candidate_data: datacheck.ParsedOutputData,
-    deviations_log: list[np.ndarray[np.float64]],
+    deviations_log: np.ndarray,
     str_data: str,
 ) -> None:
     try:
@@ -263,8 +263,8 @@ def log_results(
     result_fp_fstring: str,
     timing_results: list[float],
     data_outputs: list[datacheck.ParsedOutputData],
-    deviations: list[np.ndarray[np.float64]],
-    cached_results_path: str,
+    deviations: np.ndarray,
+    cached_results_path: Path,
 ) -> None:
     curr_result_fp = format_and_provide_outpath(
         locals(),
@@ -376,8 +376,8 @@ def run(
             )
 
     if deviations == np.empty(1):
-        deviations = (
-            0,
+        deviations = np.empty(
+            1
         )  # just here to prevent np complaining when running base case aka without ground truth yet.
     return Result(
         binary.variant,
