@@ -21,7 +21,7 @@
 #include "adi.h"
 
 /* Array initialization. */
-static void init_array(int n, DATA_TYPE POLYBENCH_2D(u, N, N, n, n)) {
+static void init_array(int n, DATA_TYPE POLYBENCH_2D(u, N2, N2, n, n)) {
     int i, j;
 
     for (i = 0; i < n; i++)
@@ -32,7 +32,7 @@ static void init_array(int n, DATA_TYPE POLYBENCH_2D(u, N, N, n, n)) {
 
 /* DCE code. Must scan the entire live-out data.
    Can be used also to check the correctness of the output. */
-static void print_array(int n, DATA_TYPE POLYBENCH_2D(u, N, N, n, n), const char* arr_name)
+static void print_array(int n, DATA_TYPE POLYBENCH_2D(u, N2, N2, n, n), const char* arr_name)
 
 {
     int i, j;
@@ -50,14 +50,14 @@ static void print_array(int n, DATA_TYPE POLYBENCH_2D(u, N, N, n, n), const char
 
 int main(int argc, char** argv) {
     /* Retrieve problem size. */
-    int n = N;
+    int n = N2;
     int tsteps = TSTEPS;
 
     /* Variable declaration/allocation. */
-    POLYBENCH_2D_ARRAY_DECL(u, DATA_TYPE, N, N, n, n);
-    POLYBENCH_2D_ARRAY_DECL(v, DATA_TYPE, N, N, n, n);
-    POLYBENCH_2D_ARRAY_DECL(p, DATA_TYPE, N, N, n, n);
-    POLYBENCH_2D_ARRAY_DECL(q, DATA_TYPE, N, N, n, n);
+    POLYBENCH_2D_ARRAY_DECL(u, DATA_TYPE, N2, N2, n, n);
+    POLYBENCH_2D_ARRAY_DECL(v, DATA_TYPE, N2, N2, n, n);
+    POLYBENCH_2D_ARRAY_DECL(p, DATA_TYPE, N2, N2, n, n);
+    POLYBENCH_2D_ARRAY_DECL(q, DATA_TYPE, N2, N2, n, n);
 
     /* Initialize array(s). */
     init_array(n, POLYBENCH_ARRAY(u));

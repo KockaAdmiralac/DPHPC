@@ -10,8 +10,8 @@
  * "Automatic Data and Computation Decomposition on Distributed Memory Parallel
  * Computers" by Peizong Lee and Zvi Meir Kedem, TOPLAS, 2002
  */
-void kernel_adi(int tsteps, int n, DATA_TYPE POLYBENCH_2D(u, N, N, n, n), DATA_TYPE POLYBENCH_2D(v, N, N, n, n),
-                DATA_TYPE POLYBENCH_2D(p, N, N, n, n), DATA_TYPE POLYBENCH_2D(q, N, N, n, n)) {
+void kernel_adi(int tsteps, int n, DATA_TYPE POLYBENCH_2D(u, N2, N2, n, n), DATA_TYPE POLYBENCH_2D(v, N2, N2, n, n),
+                DATA_TYPE POLYBENCH_2D(p, N2, N2, n, n), DATA_TYPE POLYBENCH_2D(q, N2, N2, n, n)) {
     int t, i, j;
     DATA_TYPE DX, DY, DT;
     DATA_TYPE B1, B2;

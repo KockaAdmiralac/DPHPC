@@ -76,7 +76,7 @@
    declaration or as a function argument.
    Example:
    int b[x] => POLYBENCH_1D_ARRAY(b, x)
-   int A[N][N] => POLYBENCH_2D_ARRAY(A, N, N)
+   int A[N2][N2] => POLYBENCH_2D_ARRAY(A, N2, N2)
 */
 #ifndef POLYBENCH_STACK_ARRAYS
 #define POLYBENCH_ARRAY(x) *x
@@ -135,7 +135,7 @@
 
 /* Macros to allocate heap arrays.
    Example:
-   polybench_alloc_2d_array(N, M, double) => allocates N x M x sizeof(double)
+   polybench_alloc_2d_array(N2, M, double) => allocates N2 x M x sizeof(double)
                                           and returns a pointer to the 2d array
  */
 #define POLYBENCH_ALLOC_1D_ARRAY(n1, type) \

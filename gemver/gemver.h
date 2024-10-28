@@ -16,31 +16,31 @@
 #define LARGE_DATASET
 #endif
 
-#if !defined(N)
+#if !defined(N2)
 /* Define sample dataset sizes. */
 #ifdef MINI_DATASET
-#define N 40
+#define N2 40
 #endif
 
 #ifdef SMALL_DATASET
-#define N 120
+#define N2 120
 #endif
 
 #ifdef MEDIUM_DATASET
-#define N 400
+#define N2 400
 #endif
 
 #ifdef LARGE_DATASET
-#define N 2000
+#define N2 2000
 #endif
 
 #ifdef EXTRALARGE_DATASET
-#define N 4000
+#define N2 4000
 #endif
 
-#endif /* !(N) */
+#endif /* !(N2) */
 
-#define _PB_N POLYBENCH_LOOP_BOUND(N, n)
+#define _PB_N POLYBENCH_LOOP_BOUND(N2, n)
 
 /* Default data type */
 #if !defined(DATA_TYPE_IS_INT) && !defined(DATA_TYPE_IS_FLOAT) && !defined(DATA_TYPE_IS_DOUBLE)
@@ -70,9 +70,10 @@
 #define POW_FUN(x, y) pow(x, y)
 #endif
 
-void kernel_gemver(int n, DATA_TYPE alpha, DATA_TYPE beta, DATA_TYPE POLYBENCH_2D(A, N, N, n, n),
-                   DATA_TYPE POLYBENCH_1D(u1, N, n), DATA_TYPE POLYBENCH_1D(v1, N, n), DATA_TYPE POLYBENCH_1D(u2, N, n),
-                   DATA_TYPE POLYBENCH_1D(v2, N, n), DATA_TYPE POLYBENCH_1D(w, N, n), DATA_TYPE POLYBENCH_1D(x, N, n),
-                   DATA_TYPE POLYBENCH_1D(y, N, n), DATA_TYPE POLYBENCH_1D(z, N, n));
+void kernel_gemver(int n, DATA_TYPE alpha, DATA_TYPE beta, DATA_TYPE POLYBENCH_2D(A, N2, N2, n, n),
+                   DATA_TYPE POLYBENCH_1D(u1, N2, n), DATA_TYPE POLYBENCH_1D(v1, N2, n),
+                   DATA_TYPE POLYBENCH_1D(u2, N2, n), DATA_TYPE POLYBENCH_1D(v2, N2, n),
+                   DATA_TYPE POLYBENCH_1D(w, N2, n), DATA_TYPE POLYBENCH_1D(x, N2, n), DATA_TYPE POLYBENCH_1D(y, N2, n),
+                   DATA_TYPE POLYBENCH_1D(z, N2, n));
 
 #endif /* !_GEMVER_H */
