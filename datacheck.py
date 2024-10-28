@@ -1,5 +1,5 @@
 from itertools import starmap
-from timeit import timeit
+import struct
 import numpy as np
 from typing import Literal, Optional
 
@@ -12,7 +12,7 @@ def parsed_output_data_to_py(i: ParsedOutputData) -> dict[str, list[float]]:
     return dict(starmap(lambda k, v: (k, v.tolist()), i.items()))
 
 
-def parse_dump_to_arrays(raw_str: str) -> ParsedOutputData:
+def parse_str_dump_to_arrays(raw_str: str) -> ParsedOutputData:
     line_split = raw_str.splitlines()
     ret: ParsedOutputData = {}
     curr_arr_name: str = ""
@@ -36,6 +36,36 @@ def parse_dump_to_arrays(raw_str: str) -> ParsedOutputData:
     return ret
 
 
+def parse_binary_dump_to_arrays(binary_data: bytes) -> ParsedOutputData:
+    curr_pos = 0
+    ret: ParsedOutputData = {}
+    while curr_pos < len(binary_data):
+        # Format: uint64_t for length of upcoming array in doubles, one char for array name, doubles data
+        header_format = "<Qc"
+        unp = struct.unpack_from(header_format, binary_data, offset=curr_pos)
+        (arr_len, arr_name) = unp
+        curr_pos += struct.calcsize(header_format)
+        arr_data = np.frombuffer(
+            binary_data, count=arr_len, offset=curr_pos, dtype="d"
+        )  # https://numpy.org/doc/stable/reference/arrays.scalars.html#numpy.double
+        ret[arr_name.decode()] = arr_data
+        curr_pos += 8 * arr_len
+    return ret
+
+
+def parse_dump_to_arrays(
+    raw_binary_data: bytes, is_human_readable: Optional[bool] = None
+) -> ParsedOutputData:
+    # if human readable is not provided, this will guess based on start of binary data
+    if is_human_readable is None:
+        is_human_readable = raw_binary_data.startswith(b"==BEGIN DUMP_ARRAYS==")
+
+    if is_human_readable:
+        return parse_str_dump_to_arrays(raw_binary_data.decode())
+    else:
+        return parse_binary_dump_to_arrays(raw_binary_data)
+
+
 def compare_arrays_and_get_deviation(
     max_deviation, arr_name, np_cand_arr, np_truth_arr
 ):
@@ -44,10 +74,15 @@ def compare_arrays_and_get_deviation(
     np_cand_exceeds_upper = np.greater(np_cand_arr, np_truth_upper_bound)
     np_cand_below_lower = np.less(np_cand_arr, np_truth_lower_bound)
     np_cand_oob = np.logical_or(np_cand_exceeds_upper, np_cand_below_lower)
-    violating_indices = np.argwhere(np_cand_oob)
-    if len(violating_indices):
-        raise ValueError(
-            f"Candidate element in {arr_name}[{violating_indices[0][0]}] is {np_cand_arr[violating_indices[0]]} while the true value is {np_truth_arr[violating_indices[0]]}, >{max_deviation*100}% different."
+    if np_cand_oob.any():
+        show_where_arrays_mismatch(
+            "Candidate element in {violating_idx} is {violating_elem} while the true value is {good_elem}, >"
+            + str(max_deviation * 100)
+            + "% different.",
+            arr_name,
+            np.argwhere(np_cand_oob)[0],
+            np_cand_arr,
+            np_truth_arr,
         )
 
     np_truth_eq0 = np.equal(np_truth_arr, 0.0)
@@ -56,6 +91,23 @@ def compare_arrays_and_get_deviation(
     np_div0_fixed = np.where(np_truth_eq0, 1.0, np_ratio)
     np_percent = np.subtract(np_div0_fixed, 1.0)
     return np_percent
+
+
+def show_where_arrays_mismatch(
+    fstr: str,
+    arr_name: str,
+    fault_idx: int,
+    faulty_arr: np.ndarray,
+    good_arr: np.ndarray,
+):
+    raise ValueError(
+        fstr.format(
+            violating_idx=f"{arr_name}[{fault_idx}]",
+            good_elem=good_arr[fault_idx],
+            violating_elem=faulty_arr[fault_idx],
+            div_diff=faulty_arr[fault_idx] / good_arr[fault_idx],
+        )
+    )
 
 
 # max_deviation is a percentage, not absolute
@@ -89,8 +141,15 @@ def compare_results(
                 )
             )
         else:
-            if np.not_equal(truth_arr, cand_arr).any():
-                raise ValueError("Ground truth and candidate aren't 100% identical")
+            if not np.allclose(truth_arr, cand_arr):
+                cand_mismatch = np.not_equal(truth_arr, cand_arr)
+                show_where_arrays_mismatch(
+                    "Candidate element in {violating_idx} is {violating_elem} while the true value is {good_elem}, failed exact match.",
+                    arr_name,
+                    np.argwhere(cand_mismatch)[0][0],
+                    cand_arr,
+                    truth_arr,
+                )
             return np.array((1,))
     return np.concatenate(deviation_runs)
 
@@ -120,8 +179,8 @@ if __name__ == "__main__":
     )
 
     args = parser.parse_args()
-    true_f = open(args.truth, "r")
-    against_f = open(args.against, "r")
+    true_f = open(args.truth, "rb")
+    against_f = open(args.against, "rb")
 
     parsed_true = parse_dump_to_arrays(true_f.read())
     parsed_against = parse_dump_to_arrays(against_f.read())

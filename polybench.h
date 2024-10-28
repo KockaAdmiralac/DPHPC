@@ -27,6 +27,7 @@
 #ifndef POLYBENCH_H
 #define POLYBENCH_H
 
+#include <stdint.h>
 #include <stdlib.h>
 
 /* Array padding. By default, none is used. */
@@ -271,5 +272,7 @@ extern void polybench_free_data(void* ptr);
 /* approaches. */
 extern void polybench_flush_cache();
 extern void polybench_prepare_instruments();
+
+extern void print_binary_array(uint64_t n, double* arr, const char array_name);
 
 #endif /* !POLYBENCH_H */

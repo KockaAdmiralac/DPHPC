@@ -49,6 +49,7 @@ static void init_array(int n, DATA_TYPE *alpha, DATA_TYPE *beta, DATA_TYPE POLYB
 /* DCE code. Must scan the entire live-out data.
    Can be used also to check the correctness of the output. */
 static void print_array(int n, DATA_TYPE POLYBENCH_1D(w, N2, n), const char *array_name) {
+#ifdef DUMP_DATA_HUMAN_READABLE
     int i;
 
     POLYBENCH_DUMP_START;
@@ -59,6 +60,9 @@ static void print_array(int n, DATA_TYPE POLYBENCH_1D(w, N2, n), const char *arr
     }
     POLYBENCH_DUMP_END(array_name);
     POLYBENCH_DUMP_FINISH;
+#else
+    print_binary_array(n, (double *)w, array_name[0]);
+#endif
 }
 
 int main(int argc, char **argv) {

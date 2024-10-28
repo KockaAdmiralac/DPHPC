@@ -12,6 +12,7 @@
 #include <assert.h>
 #include <math.h>
 #include <sched.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -470,4 +471,10 @@ void* polybench_alloc_data(unsigned long long int n, int elt_size) {
     void* ret = xmalloc(val);
 
     return ret;
+}
+
+void print_binary_array(uint64_t n, double* arr, const char array_name) {
+    fwrite(&n, 1, 8, POLYBENCH_DUMP_TARGET);
+    fprintf(POLYBENCH_DUMP_TARGET, "%c", array_name);
+    fwrite(arr, sizeof(double), n, POLYBENCH_DUMP_TARGET);
 }
