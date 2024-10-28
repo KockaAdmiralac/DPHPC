@@ -8,6 +8,7 @@ import json
 import os
 from pathlib import Path
 import subprocess
+import sys
 import time
 from typing import Any, Literal, Optional, List, get_args
 
@@ -164,34 +165,30 @@ def compile(
     return Binary(bin_path, benchmark, variant, opt, scheme, defines)
 
 
-def format_fstr(loc: dict[str, Any], fstr: str) -> str:
+def format_fstr(
+    loc: dict[str, Any],
+    fstr: str,
+    benchmark: Optional[str] = None,
+    variant: Optional[str] = None,
+    defines: Optional[dict[str, str]] = None,
+) -> str:
     helper_dict = {
         "ts": time.time(),
         "iso8601": datetime.datetime.now().isoformat(),
         "script_dir": get_script_dir(),
     }
-    if "binary" in loc:
-        helper_dict.update(
-            {
-                "benchmark_dir": get_benchmark_dir(loc["binary"].benchmark),
-                "variant_dir": get_variant_dir(
-                    loc["binary"].benchmark, loc["binary"].variant
-                ),
-                "results_benchmark_dir": get_results_benchmark_dir(
-                    loc["binary"].benchmark
-                ),
-                "results_variant_dir": get_results_variant_dir(
-                    loc["binary"].benchmark, loc["binary"].variant
-                ),
-                "ser_defines": serialise_defines(loc["binary"].defines),
-            }
-        )
-    if "defines" in loc:
-        helper_dict.update(
-            {
-                "ser_defines": serialise_defines(loc["defines"]),
-            }
-        )
+    if benchmark is not None:
+        helper_dict["benchmark_dir"] = get_benchmark_dir(benchmark)
+        helper_dict["results_benchmark_dir"] = get_results_benchmark_dir(benchmark)
+        if variant is not None:
+            helper_dict["variant_dir"] = get_variant_dir(benchmark, variant)
+            helper_dict["results_variant_dir"] = get_results_variant_dir(
+                benchmark, variant
+            )
+
+    if defines is not None:
+        helper_dict["ser_defines"] = serialise_defines(defines)
+
     return fstr.format(**loc | helper_dict)
 
 
@@ -213,11 +210,13 @@ def lowlevel_run(binary: Binary, threads: int) -> tuple[float, str]:
     process = subprocess.Popen(
         args, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
     )
-    (stdout, str_data) = process.communicate()
+    (stdout, stderr) = process.communicate()
     exit_code = process.returncode
     if exit_code != 0:
+        print(stderr, file=sys.stderr)
         raise ValueError(f"Exit code {exit_code} for {binary.path}")
     time_taken = float(stdout)
+    str_data = stderr
     return (time_taken, str_data)
 
 
@@ -242,7 +241,13 @@ def check_results_or_log_failure(
         )
     except Exception as match_err:
         if failed_data_out_fstr is not None:
-            failed_out_fp = format_and_provide_outpath(locals(), failed_data_out_fstr)
+            failed_out_fp = format_and_provide_outpath(
+                locals(),
+                failed_data_out_fstr,
+                benchmark=binary.benchmark,
+                variant=binary.variant,
+                defines=binary.defines,
+            )
             with open(failed_out_fp, "w+") as failed_out:
                 failed_out.write(str_data)
             print(f"Wrote bad data to {failed_out_fp}")
@@ -261,7 +266,13 @@ def log_results(
     deviations: list[np.ndarray[np.float64]],
     cached_results_path: str,
 ) -> None:
-    curr_result_fp = format_and_provide_outpath(locals(), result_fp_fstring)
+    curr_result_fp = format_and_provide_outpath(
+        locals(),
+        result_fp_fstring,
+        benchmark=binary.benchmark,
+        variant=binary.variant,
+        defines=binary.defines,
+    )
     with open(
         curr_result_fp,
         "w+",
@@ -303,7 +314,13 @@ def run(
     # Read results from cache, if specified
     use_cached_results = latest_results_fstr is not None
     if use_cached_results:  # done to prevent giving None to format_fstr
-        cached_results_path = Path(format_fstr(locals(), latest_results_fstr))
+        cached_results_path = format_and_provide_outpath(
+            locals(),
+            latest_results_fstr,
+            benchmark=binary.benchmark,
+            variant=binary.variant,
+            defines=binary.defines,
+        )
 
     did_use_cached_results = (
         use_cached_results and cached_results and cached_results_path.exists()
@@ -323,7 +340,11 @@ def run(
             data_outputs.append(datacheck.parse_dump_to_arrays(str_data))
             if binary.variant == "serial_base" and ground_truth_out_fstr is not None:
                 truth_out_fp = format_and_provide_outpath(
-                    locals(), ground_truth_out_fstr
+                    locals(),
+                    ground_truth_out_fstr,
+                    benchmark=binary.benchmark,
+                    variant=binary.variant,
+                    defines=binary.defines,
                 )
                 with open(truth_out_fp, "w+") as truth_out:
                     truth_out.write(str_data)
@@ -374,8 +395,22 @@ def run(
     )
 
 
-def format_and_provide_outpath(loc, result_fp_fstring):
-    fp = Path(format_fstr(loc, result_fp_fstring))
+def format_and_provide_outpath(
+    loc,
+    result_fp_fstring,
+    benchmark: Optional[str] = None,
+    variant: Optional[str] = None,
+    defines: Optional[dict[str, str]] = None,
+) -> Path:
+    fp = Path(
+        format_fstr(
+            loc,
+            result_fp_fstring,
+            benchmark=benchmark,
+            variant=variant,
+            defines=defines,
+        )
+    )
     parent_dir = fp.parent
     if not parent_dir.exists():
         os.makedirs(parent_dir, exist_ok=True)
@@ -448,16 +483,33 @@ if __name__ == "__main__":
         help="Format string for raw output from a failed run",
     )
 
+    parser.add_argument(
+        "--require_recompute_ground_truth",
+        action="store_true",
+        help="Do not try using an existing ground truth dataset if one exists",
+    )
+
     args = parser.parse_args()
     variants = set(args.variants)
 
     defines = dict([x.split("=")[:2] for x in args.set_defines.split(",")])
 
-    ground_truth_bin = compile(args.benchmark, "serial_base", False, defines)
-    ground_truth = run(
-        ground_truth_bin, 1, 1, False, ground_truth_out_fstr=args.ground_truth_out_fstr
+    truth_fp = format_and_provide_outpath(
+        locals(), args.ground_truth_out_fstr, benchmark=args.benchmark, defines=defines
     )
-    ground_truth_data = ground_truth.data[0]
+    if args.require_recompute_ground_truth or not truth_fp.exists():
+        ground_truth_bin = compile(args.benchmark, "serial_base", False, defines)
+        ground_truth = run(
+            ground_truth_bin,
+            1,
+            1,
+            False,
+            ground_truth_out_fstr=args.ground_truth_out_fstr,
+        )
+        ground_truth_data = ground_truth.data[0]
+    else:
+        with open(truth_fp, "r") as truth_f:
+            ground_truth_data = datacheck.parse_dump_to_arrays(truth_f.read())
 
     binaries = [
         compile(args.benchmark, variant, args.cached_bins, defines)
@@ -500,7 +552,7 @@ if __name__ == "__main__":
                     result.std_deviation,
                     result.used_cached_results,
                 )
-                for result in [ground_truth] + results
+                for result in results
             ],
             headers=[
                 "Variant",
