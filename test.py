@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-from argparse import ArgumentParser, Action
+from argparse import ArgumentParser, Action, Namespace
 from copy import deepcopy
 from dataclasses import dataclass
 import datetime
@@ -302,9 +302,8 @@ def run(
     ground_truth: Optional[datacheck.ParsedOutputData] = None,
     ground_truth_out_fstr: Optional[str] = None,
     failed_data_out_fstr: Optional[str] = None,
+    disable_checking: Optional[bool] = False,
 ) -> Result:
-
-    defines = binary.defines  # needed for format_fstr later
 
     # Run the benchmark
     timing_results = []
@@ -337,29 +336,33 @@ def run(
             (time_taken, str_data) = lowlevel_run(binary, threads)
 
             timing_results.append(time_taken)
-            data_outputs.append(datacheck.parse_dump_to_arrays(str_data))
-            if binary.variant == "serial_base" and ground_truth_out_fstr is not None:
-                truth_out_fp = format_and_provide_outpath(
-                    locals(),
-                    ground_truth_out_fstr,
-                    benchmark=binary.benchmark,
-                    variant=binary.variant,
-                    defines=binary.defines,
-                )
-                with open(truth_out_fp, "w+") as truth_out:
-                    truth_out.write(str_data)
-                print(f"Wrote ground truth data to {truth_out_fp}")
+            if not disable_checking:
+                data_outputs.append(datacheck.parse_dump_to_arrays(str_data))
+                if (
+                    binary.variant == "serial_base"
+                    and ground_truth_out_fstr is not None
+                ):
+                    truth_out_fp = format_and_provide_outpath(
+                        locals(),
+                        ground_truth_out_fstr,
+                        benchmark=binary.benchmark,
+                        variant=binary.variant,
+                        defines=binary.defines,
+                    )
+                    with open(truth_out_fp, "w+") as truth_out:
+                        truth_out.write(str_data)
+                    print(f"Wrote ground truth data to {truth_out_fp}")
 
-            if ground_truth is not None:
-                check_results_or_log_failure(
-                    binary,
-                    threads,
-                    ground_truth,
-                    failed_data_out_fstr,
-                    data_outputs[-1],
-                    deviations,
-                    str_data,
-                )
+                if ground_truth is not None:
+                    check_results_or_log_failure(
+                        binary,
+                        threads,
+                        ground_truth,
+                        failed_data_out_fstr,
+                        data_outputs[-1],
+                        deviations,
+                        str_data,
+                    )
 
         if result_fp_fstring is not None:
             log_results(
@@ -415,6 +418,100 @@ def format_and_provide_outpath(
     if not parent_dir.exists():
         os.makedirs(parent_dir, exist_ok=True)
     return fp
+
+
+def main_run(args: Namespace) -> None:
+    variants = set(args.variants)
+
+    defines = dict([x.split("=")[:2] for x in args.set_defines.split(",")])
+
+    if args.disable_checking:
+        print("\033[93mWARNING: all checking disabled\033[0m", file=sys.stderr)
+
+    ground_truth_data = None
+    if not args.disable_checking:
+        truth_fp = format_and_provide_outpath(
+            locals(),
+            args.ground_truth_out_fstr,
+            benchmark=args.benchmark,
+            defines=defines,
+        )
+        if args.require_recompute_ground_truth or not truth_fp.exists():
+            ground_truth_bin = compile(args.benchmark, "serial_base", False, defines)
+            ground_truth = run(
+                ground_truth_bin,
+                1,
+                1,
+                False,
+                ground_truth_out_fstr=args.ground_truth_out_fstr,
+            )
+            ground_truth_data = ground_truth.data[0]
+        else:
+            with open(truth_fp, "r") as truth_f:
+                ground_truth_data = datacheck.parse_dump_to_arrays(truth_f.read())
+
+    binaries = [
+        compile(args.benchmark, variant, args.cached_bins, defines)
+        for variant in variants
+    ]
+
+    results = [
+        run(
+            binary,
+            thread_num,
+            args.runs,
+            args.cached_results,
+            args.results_fstr if args.results_fstr != "" else None,
+            args.latest_results_fstr if args.latest_results_fstr != "" else None,
+            ground_truth_data,
+            failed_data_out_fstr=(
+                args.failed_data_out_fstr if args.failed_data_out_fstr != "" else None
+            ),
+            disable_checking=args.disable_checking,
+        )
+        for thread_num in args.threads
+        for binary in binaries
+    ]
+
+    print(
+        tabulate(
+            [
+                (
+                    result.variant,
+                    result.scheme,
+                    result.threads,
+                    result.mean,
+                    result.min,
+                    result.max,
+                    result.median,
+                    result.std,
+                    result.mean_deviation,
+                    result.min_deviation,
+                    result.max_deviation,
+                    result.median_deviation,
+                    result.std_deviation,
+                    result.used_cached_results,
+                )
+                for result in results
+            ],
+            headers=[
+                "Variant",
+                "Parallelisation Scheme",
+                "Threads",
+                "Mean time",
+                "Min time",
+                "Max time",
+                "Median time",
+                "Stdev time",
+                "Mean dev",
+                "Min dev",
+                "Max dev",
+                "Median dev",
+                "Stdev dev",
+                "Used cached results",
+            ],
+        )
+    )
 
 
 if __name__ == "__main__":
@@ -489,86 +586,11 @@ if __name__ == "__main__":
         help="Do not try using an existing ground truth dataset if one exists",
     )
 
+    parser.add_argument(
+        "--disable_checking",
+        action="store_true",
+        help="Disable all ouput data checking",
+    )
+
     args = parser.parse_args()
-    variants = set(args.variants)
-
-    defines = dict([x.split("=")[:2] for x in args.set_defines.split(",")])
-
-    truth_fp = format_and_provide_outpath(
-        locals(), args.ground_truth_out_fstr, benchmark=args.benchmark, defines=defines
-    )
-    if args.require_recompute_ground_truth or not truth_fp.exists():
-        ground_truth_bin = compile(args.benchmark, "serial_base", False, defines)
-        ground_truth = run(
-            ground_truth_bin,
-            1,
-            1,
-            False,
-            ground_truth_out_fstr=args.ground_truth_out_fstr,
-        )
-        ground_truth_data = ground_truth.data[0]
-    else:
-        with open(truth_fp, "r") as truth_f:
-            ground_truth_data = datacheck.parse_dump_to_arrays(truth_f.read())
-
-    binaries = [
-        compile(args.benchmark, variant, args.cached_bins, defines)
-        for variant in variants
-    ]
-
-    results = [
-        run(
-            binary,
-            thread_num,
-            args.runs,
-            args.cached_results,
-            args.results_fstr if args.results_fstr != "" else None,
-            args.latest_results_fstr if args.latest_results_fstr != "" else None,
-            ground_truth_data,
-            failed_data_out_fstr=(
-                args.failed_data_out_fstr if args.failed_data_out_fstr != "" else None
-            ),
-        )
-        for thread_num in args.threads
-        for binary in binaries
-    ]
-
-    print(
-        tabulate(
-            [
-                (
-                    result.variant,
-                    result.scheme,
-                    result.threads,
-                    result.mean,
-                    result.min,
-                    result.max,
-                    result.median,
-                    result.std,
-                    result.mean_deviation,
-                    result.min_deviation,
-                    result.max_deviation,
-                    result.median_deviation,
-                    result.std_deviation,
-                    result.used_cached_results,
-                )
-                for result in results
-            ],
-            headers=[
-                "Variant",
-                "Parallelisation Scheme",
-                "Threads",
-                "Mean time",
-                "Min time",
-                "Max time",
-                "Median time",
-                "Stdev time",
-                "Mean dev",
-                "Min dev",
-                "Max dev",
-                "Median dev",
-                "Stdev dev",
-                "Used cached results",
-            ],
-        )
-    )
+    main_run(args)
