@@ -111,7 +111,11 @@ def check_defines_constraints(
 
 
 def compile(
-    benchmark: str, variant: str, cached_bins: bool, defines: dict[str, str]
+    benchmark: str,
+    variant: str,
+    cached_bins: bool,
+    defines: dict[str, str],
+    human_readable_output: bool = False,
 ) -> Binary:
     script_dir = get_script_dir()
 
@@ -131,6 +135,9 @@ def compile(
     merged_defines.update(
         defines
     )  # manually provided defines via CLI override ones in JSON
+
+    if human_readable_output:
+        merged_defines["DUMP_DATA_HUMAN_READABLE"] = ""
 
     check_defines_constraints(opt.defines_constraints, merged_defines)
 
@@ -238,7 +245,12 @@ def lowlevel_run(binary: Binary, threads: int) -> tuple[float, str]:
         args = [str(binary.path)]
         env = {}
     process = subprocess.Popen(
-        args, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+        args,
+        env=env,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=False,
+        shell=False,
     )
     (stdout, stderr) = process.communicate()
     exit_code = process.returncode
@@ -246,8 +258,8 @@ def lowlevel_run(binary: Binary, threads: int) -> tuple[float, str]:
         print(stderr, file=sys.stderr)
         raise ValueError(f"Exit code {exit_code} for {binary.path}")
     time_taken = float(stdout)
-    str_data = stderr
-    return (time_taken, str_data)
+    binary_data = stderr
+    return (time_taken, binary_data)
 
 
 def check_results_or_log_failure(
@@ -257,7 +269,7 @@ def check_results_or_log_failure(
     failed_data_out_fstr: str,
     candidate_data: datacheck.ParsedOutputData,
     deviations_log: np.ndarray,
-    str_data: str,
+    raw_binary_data: bytes,
 ) -> None:
     try:
         deviations_log = np.append(
@@ -278,11 +290,11 @@ def check_results_or_log_failure(
                 variant=binary.variant,
                 defines=binary.defines,
             )
-            with open(failed_out_fp, "w+") as failed_out:
-                failed_out.write(str_data)
+            with open(failed_out_fp, "wb+") as failed_out:
+                failed_out.write(raw_binary_data)
             print(f"Wrote bad data to {failed_out_fp}")
         else:
-            print(str_data)
+            print(raw_binary_data)
         print(f"Discrepancy between results - {binary.path}")
         raise match_err
 
@@ -310,7 +322,6 @@ def log_results(
         dump_contents = {
             "timing": timing_results,
             "deviations": deviations.tolist(),
-            "data": [datacheck.parsed_output_data_to_py(o) for o in data_outputs],
         }
         json.dump(dump_contents, result_json_file)
 
@@ -332,7 +343,8 @@ def run(
     ground_truth: Optional[datacheck.ParsedOutputData] = None,
     ground_truth_out_fstr: Optional[str] = None,
     failed_data_out_fstr: Optional[str] = None,
-    disable_checking: Optional[bool] = False,
+    disable_checking: bool = False,
+    human_readable_output: bool = False,
 ) -> Result:
 
     # Run the benchmark
@@ -363,11 +375,15 @@ def run(
 
         for _ in range(runs):
 
-            (time_taken, str_data) = lowlevel_run(binary, threads)
+            (time_taken, raw_binary_data) = lowlevel_run(binary, threads)
 
             timing_results.append(time_taken)
             if not disable_checking:
-                data_outputs.append(datacheck.parse_dump_to_arrays(str_data))
+                data_outputs.append(
+                    datacheck.parse_dump_to_arrays(
+                        raw_binary_data, is_human_readable=human_readable_output
+                    )
+                )
                 if (
                     binary.variant == "serial_base"
                     and ground_truth_out_fstr is not None
@@ -379,8 +395,8 @@ def run(
                         variant=binary.variant,
                         defines=binary.defines,
                     )
-                    with open(truth_out_fp, "w+") as truth_out:
-                        truth_out.write(str_data)
+                    with open(truth_out_fp, "wb+") as truth_out:
+                        truth_out.write(raw_binary_data)
                     print(f"Wrote ground truth data to {truth_out_fp}")
 
                 if ground_truth is not None:
@@ -391,7 +407,7 @@ def run(
                         failed_data_out_fstr,
                         data_outputs[-1],
                         deviations,
-                        str_data,
+                        raw_binary_data,
                     )
 
         if result_fp_fstring is not None:
@@ -467,21 +483,34 @@ def main_run(args: Namespace) -> None:
             defines=defines,
         )
         if args.require_recompute_ground_truth or not truth_fp.exists():
-            ground_truth_bin = compile(args.benchmark, "serial_base", False, defines)
+            ground_truth_bin = compile(
+                args.benchmark,
+                "serial_base",
+                False,
+                defines,
+                human_readable_output=args.human_readable_output,
+            )
             ground_truth = run(
                 ground_truth_bin,
                 1,
                 1,
                 False,
                 ground_truth_out_fstr=args.ground_truth_out_fstr,
+                human_readable_output=args.human_readable_output,
             )
             ground_truth_data = ground_truth.data[0]
         else:
-            with open(truth_fp, "r") as truth_f:
+            with open(truth_fp, "rb") as truth_f:
                 ground_truth_data = datacheck.parse_dump_to_arrays(truth_f.read())
 
     binaries = [
-        compile(args.benchmark, variant, args.cached_bins, defines)
+        compile(
+            args.benchmark,
+            variant,
+            args.cached_bins,
+            defines,
+            human_readable_output=args.human_readable_output,
+        )
         for variant in variants
     ]
 
@@ -498,6 +527,7 @@ def main_run(args: Namespace) -> None:
                 args.failed_data_out_fstr if args.failed_data_out_fstr != "" else None
             ),
             disable_checking=args.disable_checking,
+            human_readable_output=args.human_readable_output,
         )
         for thread_num in args.threads
         for binary in binaries
@@ -620,6 +650,12 @@ if __name__ == "__main__":
         "--disable_checking",
         action="store_true",
         help="Disable all ouput data checking",
+    )
+
+    parser.add_argument(
+        "--human_readable_output",
+        action="store_true",
+        help="Dump data output in human-readable format",
     )
 
     args = parser.parse_args()
