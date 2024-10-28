@@ -16,37 +16,37 @@
 #define LARGE_DATASET
 #endif
 
-#if !defined(TSTEPS) && !defined(N)
+#if !defined(TSTEPS) && !defined(N2)
 /* Define sample dataset sizes. */
 #ifdef MINI_DATASET
 #define TSTEPS 20
-#define N 20
+#define N2 20
 #endif
 
 #ifdef SMALL_DATASET
 #define TSTEPS 40
-#define N 60
+#define N2 60
 #endif
 
 #ifdef MEDIUM_DATASET
 #define TSTEPS 100
-#define N 200
+#define N2 200
 #endif
 
 #ifdef LARGE_DATASET
 #define TSTEPS 500
-#define N 1000
+#define N2 1000
 #endif
 
 #ifdef EXTRALARGE_DATASET
 #define TSTEPS 1000
-#define N 2000
+#define N2 2000
 #endif
 
-#endif /* !(TSTEPS N) */
+#endif /* !(TSTEPS N2) */
 
 #define _PB_TSTEPS POLYBENCH_LOOP_BOUND(TSTEPS, tsteps)
-#define _PB_N POLYBENCH_LOOP_BOUND(N, n)
+#define _PB_N POLYBENCH_LOOP_BOUND(N2, n)
 
 /* Default data type */
 #if !defined(DATA_TYPE_IS_INT) && !defined(DATA_TYPE_IS_FLOAT) && !defined(DATA_TYPE_IS_DOUBLE)
@@ -76,7 +76,7 @@
 #define POW_FUN(x, y) pow(x, y)
 #endif
 
-void kernel_adi(int tsteps, int n, DATA_TYPE POLYBENCH_2D(u, N, N, n, n), DATA_TYPE POLYBENCH_2D(v, N, N, n, n),
-                DATA_TYPE POLYBENCH_2D(p, N, N, n, n), DATA_TYPE POLYBENCH_2D(q, N, N, n, n));
+void kernel_adi(int tsteps, int n, DATA_TYPE POLYBENCH_2D(u, N2, N2, n, n), DATA_TYPE POLYBENCH_2D(v, N2, N2, n, n),
+                DATA_TYPE POLYBENCH_2D(p, N2, N2, n, n), DATA_TYPE POLYBENCH_2D(q, N2, N2, n, n));
 
 #endif /* !_ADI_H */

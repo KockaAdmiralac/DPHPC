@@ -537,7 +537,7 @@ if __name__ == "__main__":
         "--set_defines",
         type=str,
         required=True,
-        help="Set defines yourself, notably N/TSTEPS.  Comma-separated and mandatory =",
+        help="Set defines yourself, notably N2/TSTEPS.  Comma-separated and mandatory =",
     )
     parser.add_argument(
         "--cached_bins",
