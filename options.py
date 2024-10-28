@@ -1,17 +1,20 @@
 from copy import deepcopy
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import functools
 import json
 from pathlib import Path
 from typing import Any, Iterable, List, Literal, Optional
 
+DefinesConstraints = list[dict[str, int | str]]
+
 
 @dataclass
 class Options:
-    defines: Optional[dict[str, str]] = None
-    extra_compile_options: Optional[List[str]] = None
+    defines: dict[str, str] = field(default_factory=lambda: {})
+    extra_compile_options: List[str] = field(default_factory=lambda: [])
     data_check: Optional[Literal["strict", "fuzzy"]] = None
     max_deviation: Optional[float] = None
+    defines_constraints: DefinesConstraints = field(default_factory=lambda: [])
 
     def __getitem__(self, item: str) -> Any:
         return getattr(self, item)
@@ -20,7 +23,7 @@ class Options:
         setattr(self, item, value)
 
 
-DefaultOptions = Options(defines={}, extra_compile_options=[], data_check="strict")
+DefaultOptions = Options(data_check="strict")
 
 
 def options_from_file(fp: Path) -> Options:

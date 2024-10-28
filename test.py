@@ -86,6 +86,30 @@ def get_results_variant_dir(benchmark: str, variant: str) -> Path:
     return get_results_benchmark_dir(benchmark) / variant
 
 
+def check_defines_constraints(
+    defines_constraints: options.DefinesConstraints, merged_defines: dict[str, str]
+) -> None:
+    for constraint in defines_constraints:
+        k = constraint["define"]
+        assert type(k) == str
+        if k in merged_defines:
+            val = merged_defines[k]
+            if "max" in constraint or "min" in constraint:
+                val_int = int(val)
+                if "max" in constraint:
+                    assert type(constraint["max"]) == int
+                    if val_int > constraint["max"]:
+                        raise ValueError(
+                            f"Value {val} for define {k} is beyond {constraint['max']}"
+                        )
+                if "min" in constraint:
+                    assert type(constraint["min"]) == int
+                    if val_int < constraint["min"]:
+                        raise ValueError(
+                            f"Value {val} for define {k} is below {constraint['min']}"
+                        )
+
+
 def compile(
     benchmark: str, variant: str, cached_bins: bool, defines: dict[str, str]
 ) -> Binary:
@@ -101,21 +125,14 @@ def compile(
     variant_dir = get_variant_dir(benchmark, variant)
     assert variant_dir.exists()
 
-    opt = options.options_from_multiple_files(
-        filter(
-            Path.exists,
-            (
-                script_dir / "dphpc_md.json",
-                benchmark_dir / "dphpc_md.json",
-                variant_dir / "dphpc_md.json",
-            ),
-        )
-    )
+    opt = load_options(benchmark, variant)
 
     merged_defines = deepcopy(opt.defines)
     merged_defines.update(
         defines
     )  # manually provided defines via CLI override ones in JSON
+
+    check_defines_constraints(opt.defines_constraints, merged_defines)
 
     os.makedirs(script_dir / "bin", exist_ok=True)
     bin_path = (
@@ -163,6 +180,19 @@ def compile(
     print(" ".join(args))
     subprocess.check_call(args)
     return Binary(bin_path, benchmark, variant, opt, scheme, defines)
+
+
+def load_options(benchmark: str, variant: str) -> options.Options:
+    return options.options_from_multiple_files(
+        filter(
+            Path.exists,
+            (
+                get_script_dir() / "dphpc_md.json",
+                get_benchmark_dir(benchmark) / "dphpc_md.json",
+                get_variant_dir(benchmark, variant) / "dphpc_md.json",
+            ),
+        )
+    )
 
 
 def format_fstr(
