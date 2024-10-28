@@ -3,7 +3,7 @@ from dataclasses import dataclass
 import functools
 import json
 from pathlib import Path
-from typing import Any, List, Literal, Optional
+from typing import Any, Iterable, List, Literal, Optional
 
 
 @dataclass
@@ -46,7 +46,7 @@ def override_options(parent: Options, child: Options) -> Options:
     return ret
 
 
-def options_from_multiple_files(fps: List[Path]) -> Options:
+def options_from_multiple_files(fps: Iterable[Path]) -> Options:
     # give it a list of filepaths and later filepaths will override prior ones
     read_options = map(options_from_file, fps)
     return functools.reduce(override_options, read_options, DefaultOptions)
