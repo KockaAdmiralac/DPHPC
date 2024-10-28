@@ -72,7 +72,9 @@ def get_results_variant_dir(benchmark: str, variant: str) -> Path:
     return get_results_dir() / benchmark / variant
 
 
-def compile(benchmark: str, variant: str, cached_bins: bool, n: int, tsteps: int) -> Binary:
+def compile(
+    benchmark: str, variant: str, cached_bins: bool, n: int, tsteps: int
+) -> Binary:
     script_dir = get_script_dir()
     os.makedirs(script_dir / "bin", exist_ok=True)
     bin_path = script_dir / "bin" / f"{benchmark}_{variant}_{n}"
@@ -117,13 +119,13 @@ def compile(benchmark: str, variant: str, cached_bins: bool, n: int, tsteps: int
         f"-DTSTEPS={tsteps}",
     ] + list(map(str, compunits))
     if scheme != "cuda":
-        args.extend(("-Wall","-Wextra"))
+        args.extend(("-Wall", "-Wextra"))
     if scheme == "openmp":
         args.append("-fopenmp")
     if scheme != "cuda":
         args.append("-ffast-math")
         args.append("-march=native")
-    print(' '.join(args))
+    print(" ".join(args))
     subprocess.check_call(args)
     return Binary(bin_path, benchmark, variant, n, scheme)
 
@@ -258,7 +260,10 @@ if __name__ == "__main__":
         "--n", type=int, default=400, help="The number passed as N to the kernel"
     )
     parser.add_argument(
-        "--tsteps", type=int, default=100, help="The number passed as TSTEPS to the kernel"
+        "--tsteps",
+        type=int,
+        default=100,
+        help="The number passed as TSTEPS to the kernel",
     )
     parser.add_argument(
         "--cached_bins",
@@ -290,7 +295,9 @@ if __name__ == "__main__":
     args = parser.parse_args()
     variants = set(args.variants)
 
-    ground_truth_bin = compile(args.benchmark, "serial_base", False, args.n, args.tsteps)
+    ground_truth_bin = compile(
+        args.benchmark, "serial_base", False, args.n, args.tsteps
+    )
     ground_truth = run(ground_truth_bin, 1, 1, False)
     ground_truth_data = ground_truth.data[0]
 
