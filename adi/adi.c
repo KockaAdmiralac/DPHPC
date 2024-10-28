@@ -35,6 +35,7 @@ static void init_array(int n, DATA_TYPE POLYBENCH_2D(u, N2, N2, n, n)) {
 static void print_array(int n, DATA_TYPE POLYBENCH_2D(u, N2, N2, n, n), const char* arr_name)
 
 {
+#ifdef DUMP_DATA_HUMAN_READABLE
     int i, j;
 
     POLYBENCH_DUMP_START;
@@ -46,6 +47,9 @@ static void print_array(int n, DATA_TYPE POLYBENCH_2D(u, N2, N2, n, n), const ch
         }
     POLYBENCH_DUMP_END(arr_name);
     POLYBENCH_DUMP_FINISH;
+#else
+    print_binary_array(n * n, (double*)u, arr_name[0]);
+#endif
 }
 
 int main(int argc, char** argv) {
