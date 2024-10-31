@@ -58,7 +58,7 @@ class Result:
     max_deviation: float
     median_deviation: float
     std_deviation: float
-    data: List[datacheck.ParsedOutputData]
+    data: datacheck.ParsedOutputData
     used_cached_results: bool
 
 
@@ -304,7 +304,6 @@ def log_results(
     threads: int,
     result_fp_fstring: str,
     timing_results: list[float],
-    data_outputs: list[datacheck.ParsedOutputData],
     deviations: np.ndarray,
     cached_results_path: Path,
 ) -> None:
@@ -349,7 +348,7 @@ def run(
 
     # Run the benchmark
     timing_results = []
-    data_outputs: list[datacheck.ParsedOutputData] = []
+    data_output: datacheck.ParsedOutputData = {}
     deviations = np.empty(1)
 
     # Read results from cache, if specified
@@ -379,11 +378,10 @@ def run(
 
             timing_results.append(time_taken)
             if not disable_checking:
-                data_outputs.append(
-                    datacheck.parse_dump_to_arrays(
-                        raw_binary_data, is_human_readable=human_readable_output
-                    )
+                data_output = datacheck.parse_dump_to_arrays(
+                    raw_binary_data, is_human_readable=human_readable_output
                 )
+
                 if (
                     binary.variant == "serial_base"
                     and ground_truth_out_fstr is not None
@@ -405,7 +403,7 @@ def run(
                         threads,
                         ground_truth,
                         failed_data_out_fstr,
-                        data_outputs[-1],
+                        data_output,
                         deviations,
                         raw_binary_data,
                     )
@@ -416,7 +414,6 @@ def run(
                 threads,
                 result_fp_fstring,
                 timing_results,
-                data_outputs,
                 deviations,
                 cached_results_path,
             )
@@ -439,7 +436,7 @@ def run(
         float(np.max(deviations)),
         float(np.median(deviations)),
         float(np.std(deviations)),
-        data_outputs,
+        data_output,
         did_use_cached_results,
     )
 
@@ -498,7 +495,7 @@ def main_run(args: Namespace) -> None:
                 ground_truth_out_fstr=args.ground_truth_out_fstr,
                 human_readable_output=args.human_readable_output,
             )
-            ground_truth_data = ground_truth.data[0]
+            ground_truth_data = ground_truth.data
         else:
             with open(truth_fp, "rb") as truth_f:
                 ground_truth_data = datacheck.parse_dump_to_arrays(truth_f.read())
