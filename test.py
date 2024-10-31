@@ -116,6 +116,7 @@ def compile(
     cached_bins: bool,
     defines: dict[str, str],
     human_readable_output: bool = False,
+    disable_checking: bool = False,
 ) -> Binary:
     script_dir = get_script_dir()
 
@@ -138,6 +139,9 @@ def compile(
 
     if human_readable_output:
         merged_defines["DUMP_DATA_HUMAN_READABLE"] = ""
+
+    if disable_checking:
+        merged_defines["DISABLE_CHECKING"] = ""
 
     check_defines_constraints(opt.defines_constraints, merged_defines)
 
@@ -507,6 +511,7 @@ def main_run(args: Namespace) -> None:
             args.cached_bins,
             defines,
             human_readable_output=args.human_readable_output,
+            disable_checking=args.disable_checking,
         )
         for variant in variants
     ]

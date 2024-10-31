@@ -78,7 +78,9 @@ int main(int argc, char** argv) {
 
     /* Prevent dead-code elimination. All live-out data must be printed
        by the function call in argument. */
+#ifndef DISABLE_CHECKING
     polybench_prevent_dce(print_array(n, POLYBENCH_ARRAY(u), "u"));
+#endif
 
     /* Be clean. */
     POLYBENCH_FREE_ARRAY(u);
