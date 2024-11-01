@@ -191,15 +191,16 @@ def run(
             process = subprocess.Popen(
                 args, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
             )
-            exit_code = process.wait()
+            stdout, stderr = process.communicate()
+            exit_code = process.returncode
             if exit_code != 0:
                 raise ValueError(f"Exit code {exit_code} for {binary.path}")
-            if process.stdout is None:
+            if stdout is None:
                 raise ValueError("No process timing output found")
-            if process.stderr is None:
+            if stderr is None:
                 raise ValueError("No process data output found")
-            timing_results.append(float(process.stdout.read()))
-            data_outputs.append(process.stderr.read())
+            timing_results.append(float(stdout.strip()))
+            data_outputs.append(stderr.strip())
             if ground_truth is not None and ground_truth != data_outputs[-1]:
                 print(data_outputs[-1])
                 raise ValueError(f"Discrepancy between results - {binary.path}")
@@ -300,7 +301,6 @@ if __name__ == "__main__":
     )
     ground_truth = run(ground_truth_bin, 1, 1, False)
     ground_truth_data = ground_truth.data[0]
-
     binaries = [
         compile(args.benchmark, variant, args.cached_bins, args.n, args.tsteps)
         for variant in variants
