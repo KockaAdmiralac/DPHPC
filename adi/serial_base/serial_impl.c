@@ -4,6 +4,28 @@
 /* Include benchmark-specific header. */
 #include "adi.h"
 
+void initialise_benchmark(int tsteps, int n, DATA_TYPE POLYBENCH_2D(u, N2, N2, n, n),
+                          DATA_TYPE POLYBENCH_2D(v, N2, N2, n, n), DATA_TYPE POLYBENCH_2D(p, N2, N2, n, n),
+                          DATA_TYPE POLYBENCH_2D(q, N2, N2, n, n)) {
+    (void)tsteps;
+    (void)n;
+    (void)u;
+    (void)v;
+    (void)p;
+    (void)q;
+}
+
+void finish_benchmark(int tsteps, int n, DATA_TYPE POLYBENCH_2D(u, N2, N2, n, n),
+                          DATA_TYPE POLYBENCH_2D(v, N2, N2, n, n), DATA_TYPE POLYBENCH_2D(p, N2, N2, n, n),
+                          DATA_TYPE POLYBENCH_2D(q, N2, N2, n, n)) {
+    (void)tsteps;
+    (void)n;
+    (void)u;
+    (void)v;
+    (void)p;
+    (void)q;
+}
+
 /* Main computational kernel. The whole function will be timed,
    including the call and return. */
 /* Based on a Fortran code fragment from Figure 5 of

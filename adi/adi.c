@@ -66,6 +66,8 @@ int main(int argc, char** argv) {
     /* Initialize array(s). */
     init_array(n, POLYBENCH_ARRAY(u));
 
+    initialise_benchmark(tsteps, n, POLYBENCH_ARRAY(u), POLYBENCH_ARRAY(v), POLYBENCH_ARRAY(p), POLYBENCH_ARRAY(q));
+
     /* Start timer. */
     polybench_start_instruments;
 
@@ -75,6 +77,8 @@ int main(int argc, char** argv) {
     /* Stop and print timer. */
     polybench_stop_instruments;
     polybench_print_instruments;
+
+    finish_benchmark(tsteps, n, POLYBENCH_ARRAY(u), POLYBENCH_ARRAY(v), POLYBENCH_ARRAY(p), POLYBENCH_ARRAY(q));
 
     /* Prevent dead-code elimination. All live-out data must be printed
        by the function call in argument. */
