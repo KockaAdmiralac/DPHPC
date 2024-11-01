@@ -301,6 +301,7 @@ if __name__ == "__main__":
     )
     ground_truth = run(ground_truth_bin, 1, 1, False)
     ground_truth_data = ground_truth.data[0]
+
     binaries = [
         compile(args.benchmark, variant, args.cached_bins, args.n, args.tsteps)
         for variant in variants
