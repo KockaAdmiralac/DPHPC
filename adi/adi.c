@@ -78,6 +78,8 @@ int main(int argc, char** argv) {
     polybench_stop_instruments;
     polybench_print_instruments;
 
+    finish_benchmark(tsteps, n, POLYBENCH_ARRAY(u), POLYBENCH_ARRAY(v), POLYBENCH_ARRAY(p), POLYBENCH_ARRAY(q));
+
     /* Prevent dead-code elimination. All live-out data must be printed
        by the function call in argument. */
 #ifndef DISABLE_CHECKING
