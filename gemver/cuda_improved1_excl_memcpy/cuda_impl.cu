@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <gemver.h>
 #include <polybench.h>
 #include <stdio.h>
@@ -14,10 +15,8 @@ typedef struct {
     DATA_TYPE *x_dev;
     DATA_TYPE *y_dev;
     DATA_TYPE *z_dev;
-    dim3 tpb_1;
-    dim3 bpg_1;
-    dim3 tpb_2;
-    dim3 bpg_2;
+    dim3 tpb_Ax;
+    dim3 bpg_Ax;
     dim3 tpb_3;
     dim3 bpg_3;
 } kernel_init_t;
@@ -63,11 +62,8 @@ void initialise_benchmark(int n, DATA_TYPE alpha, DATA_TYPE beta, DATA_TYPE POLY
     unsigned int tpb = TPB;
 #endif
 
-    device_addrs.tpb_1.x = tpb;
-    device_addrs.bpg_1.x = max_threads_for_gpu / device_addrs.tpb_1.x;
-
-    device_addrs.tpb_2.x = tpb;
-    device_addrs.bpg_2.x = max_threads_for_gpu / device_addrs.tpb_2.x;
+    device_addrs.tpb_Ax.x = tpb;
+    device_addrs.bpg_Ax.x = 64 * max_threads_for_gpu / device_addrs.tpb_Ax.x;
 
     device_addrs.tpb_3.x = tpb;
     device_addrs.bpg_3.x = max_threads_for_gpu / device_addrs.tpb_3.x;
@@ -103,30 +99,43 @@ void finish_benchmark(int n, DATA_TYPE alpha, DATA_TYPE beta, DATA_TYPE POLYBENC
     cudaFree(device_addrs.z_dev);
 }
 
-__global__ void kernel_1(int n, DATA_TYPE *A, DATA_TYPE *u1, DATA_TYPE *v1, DATA_TYPE *u2, DATA_TYPE *v2) {
-    for (int i = blockIdx.y * blockDim.y + threadIdx.y; i < n; i += blockDim.y * gridDim.y) {
-        for (int j = blockIdx.x * blockDim.x + threadIdx.x; j < n; j += blockDim.x * gridDim.x) {
-            A[i * n + j] = A[i * n + j] + u1[i] * v1[j] + u2[i] * v2[j];
-        }
-    }
-}
+__global__ void kernel_Ax_combi(int n, const DATA_TYPE beta, DATA_TYPE *A, DATA_TYPE *u1, DATA_TYPE *v1, DATA_TYPE *u2,
+                                DATA_TYPE *v2, DATA_TYPE *x, const DATA_TYPE *y, const DATA_TYPE *z
 
-__global__ void kernel_2(int n, const DATA_TYPE beta, const DATA_TYPE *A, DATA_TYPE *x, const DATA_TYPE *y,
-                         const DATA_TYPE *z) {
-    for (int i = blockIdx.x * blockDim.x + threadIdx.x; i < _PB_N; i += gridDim.x * blockDim.x) {
-        for (int j = 0; j < _PB_N; j++) {
-            // could tile accesses to A so they're not done as strided.
-            x[i] = x[i] + beta * A[j * n + i] * y[j];
+) {
+    extern __shared__ DATA_TYPE all_shared[];
+    DATA_TYPE *u1_s = all_shared;
+    DATA_TYPE *u2_s = &all_shared[n];
+    DATA_TYPE *y_s = &all_shared[2 * n];
+    // note: shared memory is per-block, NOT grid-wide
+    for (int i = threadIdx.x; i < n; i += blockDim.x) {
+        u1_s[i] = u1[i];
+        u2_s[i] = u2[i];
+        y_s[i] = y[i];
+    }
+    __syncthreads();
+    for (int i = blockIdx.x * blockDim.x + threadIdx.x; i < n; i += blockDim.x * gridDim.x) {
+        DATA_TYPE x_loc = x[i];
+        DATA_TYPE v1_loc = v1[i];
+        DATA_TYPE v2_loc = v2[i];
+        for (int j = 0; j < n; j++) {
+            double A_loc = A[j * n + i];
+            A_loc += u1_s[j] * v1_loc + u2_s[j] * v2_loc;
+            x_loc = x_loc + beta * A_loc * y_s[j];
+            A[j * n + i] = A_loc;
         }
-        x[i] = x[i] + z[i];
+        x[i] = x_loc + z[i];
     }
 }
 
 __global__ void kernel_3(const int n, const DATA_TYPE alpha, const DATA_TYPE *A, DATA_TYPE *w, const DATA_TYPE *x) {
     for (int i = blockIdx.x * blockDim.x + threadIdx.x; i < _PB_N; i += gridDim.x * blockDim.x) {
+        DATA_TYPE loc = w[i];
         for (int j = 0; j < _PB_N; j++) {
-            w[i] = w[i] + alpha * A[i * n + j] * x[j];
+            int jmod = (j + threadIdx.x % 32) % _PB_N;
+            loc += alpha * A[i * n + jmod] * x[jmod];
         }
+        w[i] = loc;
     }
 }
 
@@ -137,10 +146,9 @@ void kernel_gemver(int n, DATA_TYPE alpha, DATA_TYPE beta, DATA_TYPE POLYBENCH_2
                    DATA_TYPE POLYBENCH_1D(u2, N2, n), DATA_TYPE POLYBENCH_1D(v2, N2, n),
                    DATA_TYPE POLYBENCH_1D(w, N2, n), DATA_TYPE POLYBENCH_1D(x, N2, n), DATA_TYPE POLYBENCH_1D(y, N2, n),
                    DATA_TYPE POLYBENCH_1D(z, N2, n)) {
-    kernel_1<<<device_addrs.bpg_1, device_addrs.tpb_1>>>(n, device_addrs.A_dev, device_addrs.u1_dev,
-                                                         device_addrs.v1_dev, device_addrs.u2_dev, device_addrs.v2_dev);
-    kernel_2<<<device_addrs.bpg_2, device_addrs.tpb_2>>>(n, beta, device_addrs.A_dev, device_addrs.x_dev,
-                                                         device_addrs.y_dev, device_addrs.z_dev);
+    kernel_Ax_combi<<<device_addrs.bpg_Ax, device_addrs.tpb_Ax, 3 * n * sizeof(DATA_TYPE)>>>(
+        n, beta, device_addrs.A_dev, device_addrs.u1_dev, device_addrs.v1_dev, device_addrs.u2_dev, device_addrs.v2_dev,
+        device_addrs.x_dev, device_addrs.y_dev, device_addrs.z_dev);
     kernel_3<<<device_addrs.bpg_3, device_addrs.tpb_3>>>(n, alpha, device_addrs.A_dev, device_addrs.w_dev,
                                                          device_addrs.x_dev);
 
