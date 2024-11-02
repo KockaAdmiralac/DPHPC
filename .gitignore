@@ -1,4 +1,5 @@
 results
 slurm-*.out
 bin/
+DPHPC
 __pycache__/
