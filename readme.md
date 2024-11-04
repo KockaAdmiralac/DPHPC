@@ -142,6 +142,9 @@ These options are passed as Python format strings, with the following variables 
 
 For example, if you passed an option such as `--results_fstr {script_dir}/results/{benchmark}_{variant}_{threads}_{ser_defines}.json`, you would end up with a file such as `results/gemver_serial_base_1_N212000.json`.
 
+### Specifying GPU to use for CUDA variants
+Set the environment variables like `CUDA_VISIBLE_DEVICES=<gpuidx> CUDA_DEVICE_ORDER=PCI_BUS_ID`.  To get the gpuidx for the desired GPU use `lspci -nn | grep -E "VGA.*NVIDIA"` and pick the right index.  Note this is not necessarily the same index as that in `nvidia-smi`.
+
 ## Running on Euler
 To obtain final results of the project, we can use the [Euler](https://scicomp.ethz.ch/wiki/Euler) cluster provided by ETH. To access it as an ETH student, you can read the [wiki page on getting started with clusters](https://scicomp.ethz.ch/wiki/Getting_started_with_clusters). Once you get access to the Euler login node, you can use the `sbatch` command to run a Bash script on the cluster.
 
