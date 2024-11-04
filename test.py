@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-from argparse import ArgumentParser, Action, Namespace
+from argparse import Action, ArgumentParser, Namespace
 from copy import deepcopy
 from dataclasses import dataclass
 import datetime
@@ -7,10 +7,11 @@ import itertools
 import json
 import os
 from pathlib import Path
+from shutil import which
 import subprocess
 import sys
 import time
-from typing import Any, Literal, Optional, List, get_args
+from typing import Any, Literal, Optional, get_args
 
 import numpy as np
 from tabulate import tabulate
@@ -19,6 +20,8 @@ import datacheck
 import options
 
 ParallelisationScheme = Literal["serial", "openmp", "mpi", "cuda"]
+
+mpiexec_path = None
 
 
 class SplitStrArgs(Action):
@@ -238,10 +241,15 @@ def serialise_defines(defines: dict[str, str]) -> str:
 
 
 def lowlevel_run(binary: Binary, threads: int) -> tuple[float, str]:
+    global mpiexec_path
     # Find arguments for running the benchmark
     if binary.scheme == "mpi":
-        args = ["mpiexec", "-n", str(threads), str(binary.path)]
-        env = {}
+        if mpiexec_path is None:
+            mpiexec_path = which("mpiexec")
+        if mpiexec_path is None:
+            raise ValueError("mpiexec not found! Please install an MPI library.")
+        args = [mpiexec_path, "-n", str(threads), str(binary.path)]
+        env = None
     elif binary.scheme == "openmp":
         args = [str(binary.path)]
         env = {"OMP_NUM_THREADS": str(threads)}
@@ -589,7 +597,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--threads",
         action=SplitIntArgs,
-        default=[1, 2, 4, 8],
+        default=[1],
         help="Numbers of threads to run with (tries each)",
     )
     parser.add_argument(
