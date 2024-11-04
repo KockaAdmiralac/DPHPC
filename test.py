@@ -597,7 +597,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--threads",
         action=SplitIntArgs,
-        default=[1, 2, 4, 8],
+        default=[1],
         help="Numbers of threads to run with (tries each)",
     )
     parser.add_argument(
