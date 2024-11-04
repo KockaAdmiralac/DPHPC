@@ -20,3 +20,6 @@ At the root, benchmark and variant levels you can add a `dphpc_md.json` file to 
 This repository uses a [GitHub Action](.github/workflows/lint.yml) to check whether all files are linted adequately. If you're modifying C/CUDA/Python code, you can use `make format` to format the code consistently with other files, and `pyright .` to check for Python type errors. Alternatively, you can install adequate extensions for black, Pyright and clang-format in your IDE. You can also install an extension for `isort` to keep the imports ordered correctly, but this is not required to pass the linting.
 
 Linting checks do not prevent you from merging your code, but in case you want to skip the GitHub Action anyways, you can use one of the [skipping words](https://docs.github.com/en/actions/managing-workflow-runs-and-deployments/managing-workflow-runs/skipping-workflow-runs) in your commit message or commit description, such as `[skip ci]`.
+
+# Specifying GPU to use for CUDA variants
+Set the environment variables like `CUDA_VISIBLE_DEVICES=<gpuidx> CUDA_DEVICE_ORDER=PCI_BUS_ID`.  To get the gpuidx for the desired GPU use `lspci -nn | grep -E "VGA.*NVIDIA"` and pick the right index.  Note this is not necessarily the same index as that in `ǹvidia-smi`.
