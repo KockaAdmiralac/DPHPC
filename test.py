@@ -249,7 +249,7 @@ def lowlevel_run(binary: Binary, threads: int) -> tuple[float, str]:
         if mpiexec_path is None:
             raise ValueError("mpiexec not found! Please install an MPI library.")
         args = [mpiexec_path, "-n", str(threads), str(binary.path)]
-        env = {}
+        env = None
     elif binary.scheme == "openmp":
         args = [str(binary.path)]
         env = {"OMP_NUM_THREADS": str(threads)}
