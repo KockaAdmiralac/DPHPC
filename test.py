@@ -278,7 +278,7 @@ def check_results_or_log_failure(
     binary: Binary,
     threads: int,
     ground_truth: datacheck.ParsedOutputData,
-    failed_data_out_fstr: str,
+    failed_data_out_fstr: Optional[str],
     candidate_data: datacheck.ParsedOutputData,
     deviations_log: np.ndarray,
     raw_binary_data: bytes,
@@ -407,7 +407,7 @@ def run(
                         truth_out.write(raw_binary_data)
                     print(f"Wrote ground truth data to {truth_out_fp}")
 
-                if ground_truth is not None and failed_data_out_fstr is not None:
+                if ground_truth is not None:
                     check_results_or_log_failure(
                         binary,
                         threads,
