@@ -240,7 +240,7 @@ def serialise_defines(defines: dict[str, str]) -> str:
     return "".join(map(lambda it: it[0] + it[1], defines.items()))
 
 
-def lowlevel_run(binary: Binary, threads: int) -> tuple[float, str]:
+def lowlevel_run(binary: Binary, threads: int) -> tuple[float, bytes]:
     global mpiexec_path
     # Find arguments for running the benchmark
     if binary.scheme == "mpi":
@@ -364,8 +364,9 @@ def run(
     deviations = np.empty(1)
 
     # Read results from cache, if specified
-    use_cached_results = latest_results_fstr is not None
-    if use_cached_results:  # done to prevent giving None to format_fstr
+    did_use_cached_results = False
+    cached_results_path = None
+    if latest_results_fstr is not None:  # done to prevent giving None to format_fstr
         cached_results_path = format_and_provide_outpath(
             locals(),
             latest_results_fstr,
@@ -373,15 +374,12 @@ def run(
             variant=binary.variant,
             defines=binary.defines,
         )
+        did_use_cached_results = cached_results and cached_results_path.exists()
+        if did_use_cached_results:
+            with open(cached_results_path, "r") as results_file:
+                timing_results = json.load(results_file)["timing"]
 
-    did_use_cached_results = (
-        use_cached_results and cached_results and cached_results_path.exists()
-    )
-
-    if did_use_cached_results:
-        with open(cached_results_path, "r") as results_file:
-            timing_results = json.load(results_file)["timing"]
-    else:
+    if not did_use_cached_results:
         # Run the benchmark
 
         for _ in range(runs):
@@ -409,7 +407,7 @@ def run(
                         truth_out.write(raw_binary_data)
                     print(f"Wrote ground truth data to {truth_out_fp}")
 
-                if ground_truth is not None:
+                if ground_truth is not None and failed_data_out_fstr is not None:
                     check_results_or_log_failure(
                         binary,
                         threads,
@@ -420,7 +418,7 @@ def run(
                         raw_binary_data,
                     )
 
-        if result_fp_fstring is not None:
+        if result_fp_fstring is not None and cached_results_path is not None:
             log_results(
                 binary,
                 threads,
@@ -454,8 +452,8 @@ def run(
 
 
 def format_and_provide_outpath(
-    loc,
-    result_fp_fstring,
+    loc: dict[str, Any],
+    result_fp_fstring: str,
     benchmark: Optional[str] = None,
     variant: Optional[str] = None,
     defines: Optional[dict[str, str]] = None,

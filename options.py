@@ -12,7 +12,7 @@ DefinesConstraints = list[dict[str, int | str]]
 class Options:
     defines: dict[str, str] = field(default_factory=lambda: {})
     extra_compile_options: List[str] = field(default_factory=lambda: [])
-    data_check: Optional[Literal["strict", "fuzzy"]] = None
+    data_check: Literal["strict", "fuzzy"] = "strict"
     max_deviation: Optional[float] = None
     defines_constraints: DefinesConstraints = field(default_factory=lambda: [])
 
@@ -23,7 +23,7 @@ class Options:
         setattr(self, item, value)
 
 
-DefaultOptions = Options(data_check="strict")
+DefaultOptions = Options()
 
 
 def options_from_file(fp: Path) -> Options:
