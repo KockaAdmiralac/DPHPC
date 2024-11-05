@@ -1,6 +1,7 @@
 #pragma once
 #include <cublas_v2.h>
 #include <cuda.h>
+#include <stdio.h>
 
 // from https://stackoverflow.com/a/14038590
 #define gpuErrchk(ans) \
