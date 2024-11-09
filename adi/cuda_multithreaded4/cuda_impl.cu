@@ -55,14 +55,56 @@ void finish_benchmark(int tsteps, int n, DATA_TYPE POLYBENCH_2D(u, N2, N2, n, n)
     gpuErrchk(cudaFree(device_addrs.q_dev));
 }
 
+__global__ void col_sweep(int tsteps, int n, DATA_TYPE *u, DATA_TYPE *v, DATA_TYPE *p, DATA_TYPE *q, DATA_TYPE a,
+                          DATA_TYPE b, DATA_TYPE c, DATA_TYPE d, DATA_TYPE f) {
+    for (int i = 1 + blockDim.x * blockIdx.x + threadIdx.x; i < _PB_N - 1; i += gridDim.x * blockDim.x) {
+        v[0 * n + i] = SCALAR_VAL(1.0);
+        p[i * n + 0] = SCALAR_VAL(0.0);
+        q[i * n + 0] = v[0 * n + i];
+        for (int j = 1; j < _PB_N - 1; j++) {
+            p[i * n + j] = -c / (a * p[i * n + (j - 1)] + b);
+            q[i * n + j] = (-d * u[j * n + (i - 1)] + (SCALAR_VAL(1.0) + SCALAR_VAL(2.0) * d) * u[j * n + i] -
+                            f * u[j * n + (i + 1)] - a * q[i * n + (j - 1)]) /
+                           (a * p[i * n + (j - 1)] + b);
+        }
+
+        v[(_PB_N - 1) * n + i] = SCALAR_VAL(1.0);
+        for (int j = _PB_N - 2; j >= 1; j--) {
+            v[j * n + i] = p[i * n + j] * v[(j + 1) * n + i] + q[i * n + j];
+        }
+    }
+}
+
+__global__ void row_sweep(int tsteps, int n, DATA_TYPE *u, DATA_TYPE *v, DATA_TYPE *p, DATA_TYPE *q, DATA_TYPE a,
+                          DATA_TYPE c, DATA_TYPE d, DATA_TYPE e, DATA_TYPE f) {
+    for (int i = 1 + blockDim.x * blockIdx.x + threadIdx.x; i < _PB_N - 1; i += gridDim.x * blockDim.x) {
+        u[i * n + 0] = SCALAR_VAL(1.0);
+    }
+    for (int i = 1 + blockDim.x * blockIdx.x + threadIdx.x; i < _PB_N - 1; i += gridDim.x * blockDim.x) {
+        p[i * n + 0] = SCALAR_VAL(0.0);
+        q[i * n + 0] = u[i * n + 0];
+    }
+    for (int i = 1 + blockDim.x * blockIdx.x + threadIdx.x; i < _PB_N - 1; i += gridDim.x * blockDim.x) {
+        for (int j = 1; j < _PB_N - 1; j++) {
+            p[i * n + j] = -f / (d * p[i * n + (j - 1)] + e);
+            q[i * n + j] = (-a * v[(i - 1) * n + j] + (SCALAR_VAL(1.0) + SCALAR_VAL(2.0) * a) * v[i * n + j] -
+                            c * v[(i + 1) * n + j] - d * q[i * n + (j - 1)]) /
+                           (d * p[i * n + (j - 1)] + e);
+        }
+        u[i * n + (_PB_N - 1)] = SCALAR_VAL(1.0);
+        for (int j = _PB_N - 2; j >= 1; j--) {
+            u[i * n + j] = p[i * n + j] * u[i * n + (j + 1)] + q[i * n + j];
+        }
+    }
+}
+
 /* Main computational kernel. The whole function will be timed,
    including the call and return. */
 /* Based on a Fortran code fragment from Figure 5 of
  * "Automatic Data and Computation Decomposition on Distributed Memory Parallel
  * Computers" by Peizong Lee and Zvi Meir Kedem, TOPLAS, 2002
  */
-__global__ void kernel_adi_single_sm(int tsteps, int n, DATA_TYPE *u, DATA_TYPE *v, DATA_TYPE *p, DATA_TYPE *q) {
-    int t, i, j;
+void kernel_adi_inner(int tsteps, int n, DATA_TYPE *u, DATA_TYPE *v, DATA_TYPE *p, DATA_TYPE *q) {
     DATA_TYPE DX, DY, DT;
     DATA_TYPE B1, B2;
     DATA_TYPE mul1, mul2;
@@ -83,67 +125,16 @@ __global__ void kernel_adi_single_sm(int tsteps, int n, DATA_TYPE *u, DATA_TYPE 
     e = SCALAR_VAL(1.0) + mul2;
     f = d;
 
-    for (t = 1; t <= _PB_TSTEPS; t++) {
+    for (int t = 1; t <= _PB_TSTEPS; t++) {
         // Column Sweep
-        for (i = 1 + blockIdx.x * blockDim.x + threadIdx.x; i < _PB_N - 1; i += blockDim.x * gridDim.x) {
-            const DATA_TYPE vloc = SCALAR_VAL(1.0);
-            const DATA_TYPE ploc = SCALAR_VAL(0.0);
-            v[0 * n + i] = vloc;
-            p[i * n + 0] = ploc;
-            q[i * n + 0] = vloc;
-            // prev_p/prev_q/prev_v here mean one can avoid doing a store with load on next iteration
-            DATA_TYPE prev_p = ploc;
-            DATA_TYPE prev_q = vloc;
-
-            v[(_PB_N - 1) * n + i] = SCALAR_VAL(1.0);
-            DATA_TYPE prev_v = v[(_PB_N - 1) * n + i];
-            for (j = _PB_N - 2; j >= 1; j--) {
-                const DATA_TYPE new_prev_p = -c / (a * prev_p + b);
-                prev_q = (-d * u[j * n + (i - 1)] + (SCALAR_VAL(1.0) + SCALAR_VAL(2.0) * d) * u[j * n + i] -
-                          f * u[j * n + (i + 1)] - a * prev_q) /
-                         (a * prev_p + b);
-                p[i * n + j] = new_prev_p;
-                q[i * n + j] = prev_q;
-                prev_p = new_prev_p;
-                prev_v = new_prev_p * prev_v + prev_q;
-                v[j * n + i] = prev_v;
-            }
-        }
-        __syncthreads();
+        col_sweep<<<32, 64>>>(tsteps, n, u, v, p, q, a, b, c, d, f);
         // Row Sweep
-        for (i = 1 + blockDim.x * blockIdx.x + threadIdx.x; i < _PB_N - 1; i += gridDim.x * blockDim.x) {
-            u[i * n + 0] = SCALAR_VAL(1.0);
-            DATA_TYPE prev_p = SCALAR_VAL(0.0);
-            p[i * n + 0] = prev_p;
-            DATA_TYPE prev_q = u[i * n + 0];
-            q[i * n + 0] = prev_q;
-
-            for (j = 1; j < _PB_N - 1; j++) {
-                const DATA_TYPE new_prev_p = -f / (d * prev_p + e);
-                prev_q = (-a * v[(i - 1) * n + j] + (SCALAR_VAL(1.0) + SCALAR_VAL(2.0) * a) * v[i * n + j] -
-                          c * v[(i + 1) * n + j] - d * prev_q) /
-                         (d * prev_p + e);
-                p[i * n + j] = new_prev_p;
-                prev_p = new_prev_p;
-                q[i * n + j] = prev_q;
-            }
-
-            // can't merge this loop into previous one because this depends on higher-j u while the previous loop
-            // depends on the opposite.
-            DATA_TYPE prev_u = SCALAR_VAL(1.0);
-            u[i * n + (_PB_N - 1)] = prev_u;
-            for (j = _PB_N - 2; j >= 1; j--) {
-                prev_u = p[i * n + j] * prev_u + q[i * n + j];
-                u[i * n + j] = prev_u;
-            }
-        }
-        __syncthreads();
+        row_sweep<<<32, 64>>>(tsteps, n, u, v, p, q, a, c, d, e, f);
     }
 }
 
 void kernel_adi(int tsteps, int n, DATA_TYPE POLYBENCH_2D(u, N2, N2, n, n), DATA_TYPE POLYBENCH_2D(v, N2, N2, n, n),
                 DATA_TYPE POLYBENCH_2D(p, N2, N2, n, n), DATA_TYPE POLYBENCH_2D(q, N2, N2, n, n)) {
-    kernel_adi_single_sm<<<64, 64>>>(tsteps, n, device_addrs.u_dev, device_addrs.v_dev, device_addrs.p_dev,
-                                     device_addrs.q_dev);
+    kernel_adi_inner(tsteps, n, device_addrs.u_dev, device_addrs.v_dev, device_addrs.p_dev, device_addrs.q_dev);
     gpuErrchk(cudaDeviceSynchronize());
 }
