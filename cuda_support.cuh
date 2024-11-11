@@ -6,6 +6,7 @@
 // from https://stackoverflow.com/a/14038590
 #define gpuErrchk(ans) \
     { gpuAssert((ans), __FILE__, __LINE__); }
+
 inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort = true) {
     if (code != cudaSuccess) {
         fprintf(stderr, "GPUassert: %s %s %d\n", cudaGetErrorString(code), file, line);
@@ -21,4 +22,10 @@ inline void gpuCublasAssert(cublasStatus_t status, const char *file, int line, b
         fprintf(stderr, "GPUassert: %d %s %d\n", status, file, line);
         if (abort) exit(status);
     }
+}
+
+inline int get_device_multiprocessors(int device) {
+    cudaDeviceProp deviceProp;
+    cudaGetDeviceProperties(&deviceProp, device);
+    return deviceProp.multiProcessorCount;
 }
