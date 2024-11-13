@@ -72,6 +72,9 @@ int main(int argc, char** argv) {
        by the function call in argument. */
 #ifndef DISABLE_CHECKING
     polybench_prevent_dce(print_array(n, POLYBENCH_ARRAY(u), "u"));
+    polybench_prevent_dce(print_array(n, POLYBENCH_ARRAY(u), "v"));
+    polybench_prevent_dce(print_array(n, POLYBENCH_ARRAY(u), "p"));
+    polybench_prevent_dce(print_array(n, POLYBENCH_ARRAY(u), "q"));
 #endif
 
     /* Be clean. */

@@ -1,0 +1,2 @@
+# CUDA multithreaded 10
+Is supposed to speed up by initialising first rows of p/q to zero only once.  Actually meaningless or bad, presumably because if it's running concurrently to ordinary kernels there's competition for global memory bandwidth.

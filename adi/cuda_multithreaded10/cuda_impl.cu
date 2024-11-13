@@ -93,68 +93,65 @@ void finish_benchmark(int tsteps, int n, DATA_TYPE POLYBENCH_2D(u, N2, N2, n, n)
     gpuCublasErrchk(cublasDestroy(device_addrs.handle));
 }
 
-__global__ void col_sweep(int tsteps, int n, DATA_TYPE *u, DATA_TYPE *v, DATA_TYPE *p, DATA_TYPE *q, DATA_TYPE a,
-                          DATA_TYPE b, DATA_TYPE c, DATA_TYPE d, DATA_TYPE f) {
+__global__ void initialise_pq_first_row(int n, double *p, double *q) {
     for (int i = 1 + blockDim.x * blockIdx.x + threadIdx.x; i < _PB_N - 1; i += gridDim.x * blockDim.x) {
-        DATA_TYPE prev_v = SCALAR_VAL(1.0);
-        v[0 * n + i] = prev_v;
+        p[i] = SCALAR_VAL(0.0);
+        q[i] = SCALAR_VAL(1.0);
+    }
+}
+
+// __global__ finalise_uv(int n, double *u, double*v){
+//     for (int i = 1 + blockDim.x * blockIdx.x + threadIdx.x; i < _PB_N - 1; i += gridDim.x * blockDim.x) {
+//     u[0 * n + i] = SCALAR_VAL(1.0);
+//     }
+// }
+
+inline __device__ void thread_sweep_footer(double *out_arr, int n, int i, double *p, double *q) {
+    DATA_TYPE prev_out = SCALAR_VAL(1.0);
+    out_arr[0 * n + i] = SCALAR_VAL(1.0);
+    for (int j = _PB_N - 2; j >= 1; j--) {
+        prev_out = p[j * n + i] * prev_out + q[j * n + i];
+        out_arr[j * n + i] = prev_out;
+    }
+    out_arr[(_PB_N - 1) * n + i] = SCALAR_VAL(1.0);
+}
+
+inline __device__ void sweep_generic(int n, double *in_arr, double *out_arr, double *p, double *q, double v1, double v2,
+                                     double v3, double v4, double v5) {
+    // col_sweep: in_arr = u, out_arr = v, v1=a, v2=b, v3=c, v4=d, v5=f
+    // row_sweep: in_arr = v, out_arr = u, v1=d, v2=e, v3=f, v4=a, v5=c
+    for (int i = 1 + blockDim.x * blockIdx.x + threadIdx.x; i < _PB_N - 1; i += gridDim.x * blockDim.x) {
         DATA_TYPE prev_p = SCALAR_VAL(0.0);
-        p[0 * n + i] = prev_p;
-        DATA_TYPE prev_q = prev_v;
-        q[0 * n + i] = prev_q;
+        // p[0 * n + i] = prev_p;
+        DATA_TYPE prev_q = SCALAR_VAL(1.0);
+        // q[0 * n + i] = prev_q;
         for (int j = 1; j < _PB_N - 1; j++) {
-            DATA_TYPE new_prev_p = -c / (a * prev_p + b);
-            DATA_TYPE um1 = u[j * n + (i - 1)];
-            DATA_TYPE u0 = u[j * n + i];
-            DATA_TYPE up1 = u[j * n + (i + 1)];
+            DATA_TYPE new_prev_p = -v3 / (v1 * prev_p + v2);
+            DATA_TYPE inm1 = in_arr[j * n + (i - 1)];
+            DATA_TYPE in0 = in_arr[j * n + i];
+            DATA_TYPE inp1 = in_arr[j * n + (i + 1)];
 
             DATA_TYPE new_prev_q =
-                (-d * um1 + (SCALAR_VAL(1.0) + SCALAR_VAL(2.0) * d) * u0 - f * up1 - a * prev_q) / (a * prev_p + b);
+                (-v4 * inm1 + (SCALAR_VAL(1.0) + SCALAR_VAL(2.0) * v4) * in0 - v5 * inp1 - v1 * prev_q) /
+                (v1 * prev_p + v2);
 
             p[j * n + i] = new_prev_p;
             q[j * n + i] = new_prev_q;
             prev_p = new_prev_p;
             prev_q = new_prev_q;
         }
-
-        prev_v = SCALAR_VAL(1.0);
-        v[(_PB_N - 1) * n + i] = prev_v;
-        for (int j = _PB_N - 2; j >= 1; j--) {
-            prev_v = p[j * n + i] * prev_v + q[j * n + i];
-            v[j * n + i] = prev_v;
-        }
+        thread_sweep_footer(out_arr, n, i, p, q);
     }
+}
+
+__global__ void col_sweep(int tsteps, int n, DATA_TYPE *u, DATA_TYPE *v, DATA_TYPE *p, DATA_TYPE *q, DATA_TYPE a,
+                          DATA_TYPE b, DATA_TYPE c, DATA_TYPE d, DATA_TYPE f) {
+    sweep_generic(n, u, v, p, q, a, b, c, d, f);
 }
 
 __global__ void row_sweep(int tsteps, int n, DATA_TYPE *u, DATA_TYPE *v, DATA_TYPE *p, DATA_TYPE *q, DATA_TYPE a,
                           DATA_TYPE c, DATA_TYPE d, DATA_TYPE e, DATA_TYPE f) {
-    for (int i = 1 + blockDim.x * blockIdx.x + threadIdx.x; i < _PB_N - 1; i += gridDim.x * blockDim.x) {
-        u[0 * n + i] = SCALAR_VAL(1.0);
-        DATA_TYPE prev_p = SCALAR_VAL(0.0);
-        p[0 * n + i] = prev_p;
-        DATA_TYPE prev_q = u[0 * n + i];
-        q[0 * n + i] = prev_q;
-        for (int j = 1; j < _PB_N - 1; j++) {
-            DATA_TYPE new_prev_p = -f / (d * prev_p + e);
-            DATA_TYPE vm1 = v[j * n + (i - 1)];
-            DATA_TYPE v0 = v[j * n + i];
-            DATA_TYPE vp1 = v[j * n + (i + 1)];
-
-            DATA_TYPE new_prev_q =
-                (-a * vm1 + (SCALAR_VAL(1.0) + SCALAR_VAL(2.0) * a) * v0 - c * vp1 - d * prev_q) / (d * prev_p + e);
-
-            p[j * n + i] = new_prev_p;
-            q[j * n + i] = new_prev_q;
-            prev_p = new_prev_p;
-            prev_q = new_prev_q;
-        }
-        DATA_TYPE prev_u = SCALAR_VAL(1.0);
-        u[(_PB_N - 1) * n + i] = prev_u;
-        for (int j = _PB_N - 2; j >= 1; j--) {
-            prev_u = p[j * n + i] * prev_u + q[j * n + i];
-            u[j * n + i] = prev_u;
-        }
-    }
+    sweep_generic(n, v, u, p, q, d, e, f, a, c);
 }
 
 /* Main computational kernel. The whole function will be timed,
@@ -185,23 +182,34 @@ void kernel_adi_inner(int tsteps, int n, DATA_TYPE *u, DATA_TYPE *v, DATA_TYPE *
     f = d;
 
     int sms = get_device_multiprocessors(0);
+    cudaStream_t pq_lazy_init;
+    gpuErrchk(cudaStreamCreate(&pq_lazy_init));
+
+    cudaStream_t regular_kernel_stream;
+    gpuErrchk(cudaStreamCreate(&regular_kernel_stream));
+
+    initialise_pq_first_row<<<sms, 1024, 0, pq_lazy_init>>>(n, p, q);
+
     for (int t = 1; t <= _PB_TSTEPS; t++) {
         // Column Sweep
         // Using very high block/thread count to give CUDA lots of independent work
         // threads have negligible memory needs so 1024/block makes sense.
         double *temp_v = device_addrs.spare_arr;
         // col_sweep writes to v but never reads from it, so can drop the old v entirely
-        transpose_oop(v, temp_v,
-                      n);  // for some reason transpose_oop is needed before sweep else a race condition occurs
-        col_sweep<<<sms, 1024>>>(tsteps, n, u, temp_v, p, q, a, b, c, d, f);
+        // transpose_oop(v, temp_v,
+        //               n);  // for some reason transpose_oop is needed before sweep else a race condition occurs
+        col_sweep<<<sms, 1024, 0, regular_kernel_stream>>>(tsteps, n, u, temp_v, p, q, a, b, c, d, f);
         transpose_oop(temp_v, v, n);
         // Row Sweep
         double *temp_u = device_addrs.spare_arr;
         // row_sweep only writes to u but never reads so no need to initialise temp_u.
-        transpose_oop(u, temp_u, n);
-        row_sweep<<<sms, 1024>>>(tsteps, n, temp_u, v, p, q, a, c, d, e, f);
+        // transpose_oop(u, temp_u, n);
+        row_sweep<<<sms, 1024, 0, regular_kernel_stream>>>(tsteps, n, temp_u, v, p, q, a, c, d, e, f);
         transpose_oop(temp_u, u, n);
     }
+
+    gpuErrchk(cudaStreamDestroy(pq_lazy_init));
+    gpuErrchk(cudaStreamDestroy(regular_kernel_stream));
 }
 
 void kernel_adi(int tsteps, int n, DATA_TYPE POLYBENCH_2D(u, N2, N2, n, n), DATA_TYPE POLYBENCH_2D(v, N2, N2, n, n),
