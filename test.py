@@ -243,19 +243,21 @@ def serialise_defines(defines: dict[str, str]) -> str:
 def lowlevel_run(binary: Binary, threads: int) -> tuple[float, bytes]:
     global mpiexec_path
     # Find arguments for running the benchmark
+    external_env = dict(os.environ)
     if binary.scheme == "mpi":
         if mpiexec_path is None:
             mpiexec_path = which("mpiexec")
         if mpiexec_path is None:
             raise ValueError("mpiexec not found! Please install an MPI library.")
         args = [mpiexec_path, "-n", str(threads), str(binary.path)]
-        env = None
+        env = {}
     elif binary.scheme == "openmp":
         args = [str(binary.path)]
         env = {"OMP_NUM_THREADS": str(threads)}
     else:
         args = [str(binary.path)]
         env = {}
+    env.update(external_env)
     process = subprocess.Popen(
         args,
         env=env,
