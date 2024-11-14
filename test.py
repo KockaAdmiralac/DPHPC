@@ -113,6 +113,17 @@ def check_defines_constraints(
                         )
 
 
+# https://stackoverflow.com/a/5656097
+def intersperse_elem_in_list(iterable, delimiter):
+    try:
+        it = iter(iterable)
+        for x in it:
+            yield delimiter
+            yield x
+    except StopIteration:
+        return
+
+
 def compile(
     benchmark: str,
     variant: str,
@@ -153,10 +164,25 @@ def compile(
         script_dir / "bin" / f"{benchmark}_{variant}_{serialise_defines(defines)}"
     )
 
-    compunit_filter = lambda files: filter(lambda fp: fp.suffix in (".c", ".cu"), files)
-    benchmark_files = compunit_filter(benchmark_dir.iterdir())
-    variant_files = compunit_filter(variant_dir.iterdir())
-    compunits = itertools.chain(pb_generic_compunits, benchmark_files, variant_files)
+    def compunit_filter(files):
+        return filter(lambda fp: fp.suffix in (".c", ".cu", ".cpp"), files)
+
+    source_dirs = itertools.chain(
+        [benchmark_dir, variant_dir], get_abs_paths(opt.extra_source_dirs)
+    )
+    raw_source_files = itertools.chain(*map(lambda d: d.iterdir(), source_dirs))
+    compunits_unfiltered = itertools.chain(
+        pb_generic_compunits, map(str, compunit_filter(raw_source_files))
+    )
+
+    exclude_sources_abs = list(map(str, get_abs_paths(opt.exclude_sources)))
+    compunits = filter(lambda src: src not in exclude_sources_abs, compunits_unfiltered)
+
+    includes = itertools.chain(
+        [str(variant_dir), str(script_dir), str(benchmark_dir)],
+        map(str, get_abs_paths(opt.extra_includes)),
+    )
+    includes_args = intersperse_elem_in_list(includes, "-I")
 
     if cached_bins and bin_path.exists():
         return Binary(bin_path, benchmark, variant, opt, scheme, defines)
@@ -177,10 +203,7 @@ def compile(
         "-O3",
         "-o",
         str(bin_path),
-        "-I",
-        str(script_dir),
-        "-I",
-        str(benchmark_dir),
+        *includes_args,
         *defines_args,
         *extra_options,
     ] + list(map(str, compunits))
@@ -194,6 +217,10 @@ def compile(
     print(" ".join(args))
     subprocess.check_call(args)
     return Binary(bin_path, benchmark, variant, opt, scheme, defines)
+
+
+def get_abs_paths(paths):
+    return map(lambda p: Path(p).resolve(), paths)
 
 
 def load_options(benchmark: str, variant: str) -> options.Options:
