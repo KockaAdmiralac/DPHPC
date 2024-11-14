@@ -30,7 +30,7 @@ DefaultOptions = Options()
 
 
 def options_from_file(fp: Path) -> Options:
-    ret = DefaultOptions
+    ret = deepcopy(DefaultOptions)
     with open(fp, "r") as src:
         j = json.load(src)
         for param in Options.__dataclass_fields__:
