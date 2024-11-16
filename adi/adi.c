@@ -20,16 +20,6 @@
 /* Include benchmark-specific header. */
 #include "adi.h"
 
-/* Array initialization. */
-static void init_array(int n, DATA_TYPE POLYBENCH_2D(u, N2, N2, n, n)) {
-    int i, j;
-
-    for (i = 0; i < n; i++)
-        for (j = 0; j < n; j++) {
-            u[i][j] = (DATA_TYPE)(i + n - j) / n;
-        }
-}
-
 /* DCE code. Must scan the entire live-out data.
    Can be used also to check the correctness of the output. */
 static void print_array(int n, DATA_TYPE POLYBENCH_2D(u, N2, N2, n, n), const char* arr_name)
@@ -63,10 +53,8 @@ int main(int argc, char** argv) {
     POLYBENCH_2D_ARRAY_DECL(p, DATA_TYPE, N2, N2, n, n);
     POLYBENCH_2D_ARRAY_DECL(q, DATA_TYPE, N2, N2, n, n);
 
-    /* Initialize array(s). */
-    init_array(n, POLYBENCH_ARRAY(u));
-
-    initialise_benchmark(tsteps, n, POLYBENCH_ARRAY(u), POLYBENCH_ARRAY(v), POLYBENCH_ARRAY(p), POLYBENCH_ARRAY(q));
+    initialise_benchmark(argc, argv, tsteps, n, POLYBENCH_ARRAY(u), POLYBENCH_ARRAY(v), POLYBENCH_ARRAY(p),
+                         POLYBENCH_ARRAY(q));
 
     /* Start timer. */
     polybench_start_instruments;

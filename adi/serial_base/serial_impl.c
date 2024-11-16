@@ -4,7 +4,7 @@
 /* Include benchmark-specific header. */
 #include "adi.h"
 
-void initialise_benchmark(int tsteps, int n, DATA_TYPE POLYBENCH_2D(u, N2, N2, n, n),
+void initialise_benchmark(int argc, char** argv, int tsteps, int n, DATA_TYPE POLYBENCH_2D(u, N2, N2, n, n),
                           DATA_TYPE POLYBENCH_2D(v, N2, N2, n, n), DATA_TYPE POLYBENCH_2D(p, N2, N2, n, n),
                           DATA_TYPE POLYBENCH_2D(q, N2, N2, n, n)) {
     (void)tsteps;
@@ -13,6 +13,13 @@ void initialise_benchmark(int tsteps, int n, DATA_TYPE POLYBENCH_2D(u, N2, N2, n
     (void)v;
     (void)p;
     (void)q;
+
+    int i, j;
+
+    for (i = 0; i < n; i++)
+        for (j = 0; j < n; j++) {
+            u[i][j] = (DATA_TYPE)(i + n - j) / n;
+        }
 }
 
 void finish_benchmark(int tsteps, int n, DATA_TYPE POLYBENCH_2D(u, N2, N2, n, n),

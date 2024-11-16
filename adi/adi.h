@@ -76,7 +76,7 @@
 #define POW_FUN(x, y) pow(x, y)
 #endif
 
-void initialise_benchmark(int tsteps, int n, DATA_TYPE POLYBENCH_2D(u, N2, N2, n, n),
+void initialise_benchmark(int argc, char** argv, int tsteps, int n, DATA_TYPE POLYBENCH_2D(u, N2, N2, n, n),
                           DATA_TYPE POLYBENCH_2D(v, N2, N2, n, n), DATA_TYPE POLYBENCH_2D(p, N2, N2, n, n),
                           DATA_TYPE POLYBENCH_2D(q, N2, N2, n, n));
 
