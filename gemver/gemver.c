@@ -20,7 +20,6 @@
 /* Include benchmark-specific header. */
 #include "gemver.h"
 
-
 /* DCE code. Must scan the entire live-out data.
    Can be used also to check the correctness of the output. */
 static void print_array(int n, DATA_TYPE POLYBENCH_1D(w, N2, n), const char *array_name) {
