@@ -142,9 +142,9 @@ inline __device__ void sweep_generic(int n, double *in_arr, double *out_arr, dou
             if (j_ctr == 0 || j_ctr == js_at_time) {
                 // thread with index 0 should write to 0 and 1, with index i to i+1, and index threads_in_block to
                 // threads_in_block and threads_in_block+1
-                __syncthreads();
+                __syncthreads();  // avoid overwriting a slowpoke's shared memory
                 for (int j_temp = 0; j_temp < _PB_N - 1 && j_temp < js_at_time; j_temp++) {
-                    smem_in_arr[threadIdx.x][j_temp] = in_arr[(j + j_temp) * n + i];
+                    smem_in_arr[threadIdx.x][j_temp] = in_arr[(j + j_temp) * n + i];  // note this i is >= 1, not >= 0
                 }
                 j_ctr = 0;
                 __syncthreads();  // needed to ensure my neighbour threads don't go ahead until my data for them is

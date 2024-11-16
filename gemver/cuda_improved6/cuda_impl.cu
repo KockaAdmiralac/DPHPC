@@ -1,4 +1,3 @@
-#include <assert.h>
 #include <gemver.h>
 #include <polybench.h>
 #include <stdio.h>
@@ -19,9 +18,50 @@ typedef struct {
     DATA_TYPE *x_dev;
     DATA_TYPE *y_dev;
     DATA_TYPE *z_dev;
+    dim3 tpb_1;
+    dim3 bpg_1;
+    dim3 tpb_2;
+    dim3 bpg_2;
+    dim3 tpb_3;
+    dim3 bpg_3;
 } kernel_init_t;
 
 kernel_init_t device_addrs;
+
+__global__ void kernel_1(int n, DATA_TYPE *A, DATA_TYPE *u1, DATA_TYPE *v1, DATA_TYPE *u2, DATA_TYPE *v2) {
+    for (int j = blockIdx.x * blockDim.x + threadIdx.x; j < n; j += blockDim.x * gridDim.x) {
+        for (int i = blockIdx.y * blockDim.y + threadIdx.y; i < n; i += blockDim.y * gridDim.y) {
+            A[i * n + j] = A[i * n + j] + u1[i] * v1[j] + u2[i] * v2[j];
+        }
+    }
+}
+
+inline __device__ void own_gemv(int n, DATA_TYPE *out_arr, const DATA_TYPE scale_by, const DATA_TYPE *arr,
+                                const DATA_TYPE *mult_vect, const DATA_TYPE *add_vect) {
+    for (int i = blockIdx.x * blockDim.x + threadIdx.x; i < _PB_N; i += gridDim.x * blockDim.x) {
+#define KERNEL2_ACCS 4
+        DATA_TYPE x_incs[KERNEL2_ACCS] = {0.0};
+        int j;
+        for (j = 0; j < _PB_N - KERNEL2_ACCS + 1; j += KERNEL2_ACCS) {
+            // could tile accesses to A so they're not done as strided.
+            for (int acc = 0; acc < KERNEL2_ACCS; acc++) {
+                x_incs[acc] += arr[(j + acc) * n + i] * mult_vect[(j + acc)];
+            }
+        }
+        for (; j < _PB_N; j++) {
+            x_incs[0] += arr[j * n + i] * mult_vect[j];
+        }
+        for (int k = 1; k < KERNEL2_ACCS; k++) {
+            x_incs[0] += x_incs[k];
+        }
+        out_arr[i] += scale_by * x_incs[0] + add_vect[i];
+    }
+}
+
+__global__ void kernel_2(int n, const DATA_TYPE beta, const DATA_TYPE *A, DATA_TYPE *x, const DATA_TYPE *y,
+                         const DATA_TYPE *z) {
+    own_gemv(n, x, beta, A, y, z);
+}
 
 void initialise_benchmark(int argc, char **argv, int n, DATA_TYPE *alpha, DATA_TYPE *beta,
                           DATA_TYPE POLYBENCH_2D(A, N2, N2, n, n), DATA_TYPE POLYBENCH_1D(u1, N2, n),
@@ -29,8 +69,18 @@ void initialise_benchmark(int argc, char **argv, int n, DATA_TYPE *alpha, DATA_T
                           DATA_TYPE POLYBENCH_1D(v2, N2, n), DATA_TYPE POLYBENCH_1D(w, N2, n),
                           DATA_TYPE POLYBENCH_1D(x, N2, n), DATA_TYPE POLYBENCH_1D(y, N2, n),
                           DATA_TYPE POLYBENCH_1D(z, N2, n)) {
+    (void)n;
     (void)alpha;
     (void)beta;
+    (void)A;
+    (void)u1;
+    (void)v1;
+    (void)u2;
+    (void)v2;
+    (void)w;
+    (void)x;
+    (void)y;
+    (void)z;
     int i, j;
 
     *alpha = 1.5;
@@ -69,6 +119,24 @@ void initialise_benchmark(int argc, char **argv, int n, DATA_TYPE *alpha, DATA_T
     cudaMemcpy(device_addrs.y_dev, y, sizeof(DATA_TYPE) * n, cudaMemcpyHostToDevice);
     cudaMemcpy(device_addrs.z_dev, z, sizeof(DATA_TYPE) * n, cudaMemcpyHostToDevice);
 
+    cudaDeviceProp deviceProp;
+    cudaGetDeviceProperties(&deviceProp, 0);
+    int sm_count = deviceProp.multiProcessorCount;
+    int max_threads_per_sm = deviceProp.maxThreadsPerMultiProcessor;
+    int max_threads_for_gpu = sm_count * max_threads_per_sm;
+
+#ifndef TPB
+    unsigned int tpb = 64;
+#else
+    unsigned int tpb = TPB;
+#endif
+
+    device_addrs.tpb_1.x = tpb;
+    device_addrs.bpg_1.x = max_threads_for_gpu / device_addrs.tpb_1.x;
+
+    device_addrs.tpb_2.x = tpb;
+    device_addrs.bpg_2.x = max_threads_for_gpu / device_addrs.tpb_2.x;
+
     gpuCublasErrchk(cublasCreate(&device_addrs.handle));
 }
 
@@ -89,7 +157,7 @@ void finish_benchmark(int n, DATA_TYPE alpha, DATA_TYPE beta, DATA_TYPE POLYBENC
 
     cudaMemcpy(w, device_addrs.w_dev, sizeof(DATA_TYPE) * n, cudaMemcpyDeviceToHost);
     cudaMemcpy(A, device_addrs.A_dev, sizeof(DATA_TYPE) * n * n, cudaMemcpyDeviceToHost);
-    cudaMemcpy(x, device_addrs.z_dev, sizeof(DATA_TYPE) * n, cudaMemcpyDeviceToHost);
+    cudaMemcpy(x, device_addrs.x_dev, sizeof(DATA_TYPE) * n, cudaMemcpyDeviceToHost);
 
     cudaFree(device_addrs.A_dev);
     cudaFree(device_addrs.u1_dev);
@@ -111,36 +179,15 @@ void kernel_gemver(int n, DATA_TYPE alpha, DATA_TYPE beta, DATA_TYPE POLYBENCH_2
                    DATA_TYPE POLYBENCH_1D(u2, N2, n), DATA_TYPE POLYBENCH_1D(v2, N2, n),
                    DATA_TYPE POLYBENCH_1D(w, N2, n), DATA_TYPE POLYBENCH_1D(x, N2, n), DATA_TYPE POLYBENCH_1D(y, N2, n),
                    DATA_TYPE POLYBENCH_1D(z, N2, n)) {
-    // cublasDgemv isn't exactly the same as polybench gemver, Â first needs to be computed and passed as A.  Polybench
-    // to cublas matching: ß->ɑ, y->x, z->ßy
-    // cublasDgemm: C = ɑ op(A) op(B) + ßC
-    //   op(A) mxk
-    //   op(B) kxn
-    //   C mxn
-    // cublasDgemv: y = ɑ op(A) x + ßy
-    //   op(A) mxn
-    //   x nx1
-    //   y mx1
-    // steps:
-    //   gemm on C=A, A=v1, B=u1, meaning A=A+u1.v1
-    //   C mxn = N2xN2, B kxn = 1xN2, A mxk = N2x1
-    //   gemm on C=A, A=v2, B=u2, meaning A=A+u2.v2, A at this point is gemver's Â output
-    //   mxn = N2xN2, kxn = 1xN2, mxk = N2x1
-    //   gemv on ɑ=ß, A=A, x=y, ß=1, y=z, z is now gemver's x output
-    //   mxn = N2xN2, x is n, y is m
-    //   gemv on ɑ=ɑ, A=A^T, x=z, ß=0, y=w, w is now gemver's w output
-
     const double cst1 = 1.0;
     const double cst0 = 0.0;
 
-    gpuCublasErrchk(cublasDgemm_v2(device_addrs.handle, CUBLAS_OP_N, CUBLAS_OP_N, N2, N2, 1, &cst1, device_addrs.v1_dev,
-                                   N2, device_addrs.u1_dev, 1, &cst1, device_addrs.A_dev, N2));
-    gpuCublasErrchk(cublasDgemm_v2(device_addrs.handle, CUBLAS_OP_N, CUBLAS_OP_N, N2, N2, 1, &cst1, device_addrs.v2_dev,
-                                   N2, device_addrs.u2_dev, 1, &cst1, device_addrs.A_dev, N2));
-    gpuCublasErrchk(cublasDgemv_v2(device_addrs.handle, CUBLAS_OP_N, N2, N2, &beta, device_addrs.A_dev, N2,
-                                   device_addrs.y_dev, 1, &cst1, device_addrs.z_dev, 1));
+    kernel_1<<<device_addrs.bpg_1, device_addrs.tpb_1>>>(n, device_addrs.A_dev, device_addrs.u1_dev,
+                                                         device_addrs.v1_dev, device_addrs.u2_dev, device_addrs.v2_dev);
+    kernel_2<<<device_addrs.bpg_2, device_addrs.tpb_2>>>(n, beta, device_addrs.A_dev, device_addrs.x_dev,
+                                                         device_addrs.y_dev, device_addrs.z_dev);
     gpuCublasErrchk(cublasDgemv_v2(device_addrs.handle, CUBLAS_OP_T, N2, N2, &alpha, device_addrs.A_dev, N2,
-                                   device_addrs.z_dev, 1, &cst0, device_addrs.w_dev, 1));
+                                   device_addrs.x_dev, 1, &cst0, device_addrs.w_dev, 1));
 
     gpuErrchk(cudaDeviceSynchronize());
 }
