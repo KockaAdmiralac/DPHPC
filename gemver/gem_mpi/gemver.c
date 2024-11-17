@@ -1,5 +1,18 @@
+/* Include polybench common header. */
+#include <polybench.h>
+
+/* Include mpi header. */
+#include <mpi.h>
+
+/* Include benchmark-specific header. */
 #include "gemver.h"
 
+#include <math.h>
+#include <stdio.h>
+#include <string.h>
+#include <unistd.h>
+
+#define N 2000
 
 /* Array initialization. */
 static void init_array(int n, DATA_TYPE *alpha, DATA_TYPE *beta, DATA_TYPE POLYBENCH_2D(A, N, N, n, n),
