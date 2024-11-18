@@ -15,6 +15,21 @@
 int world_size;
 int world_rank;
 
+int block;
+int remaining;
+
+int process_size;
+
+#define MAX_PROCESSES 16
+
+static int block_start_indx[MAX_PROCESSES];
+static int num_elements[MAX_PROCESSES];
+static int block_start_indx_matrix[MAX_PROCESSES];
+static int num_elements_matrix[MAX_PROCESSES];
+
+MPI_Datatype columns, new_columns;//used to send tge blocks of the 2d array
+MPI_Datatype columns_to_get, new_columns_to_get;
+
 /*
 VERSION 3 
 central process distributes the work in blocks equally on all others and collects results
@@ -67,6 +82,53 @@ void initialise_benchmark(int argc, char **argv, int n, DATA_TYPE *alpha, DATA_T
         for (j = 0; j < n; j++) A[i][j] = (DATA_TYPE)(i * j % n) / n;
     }
 
+    //split into blocks to distribute over the processes
+    block = n / world_size;
+    remaining = n % world_size;
+
+    *block_start_indx = (int *)malloc(world_size * sizeof(int));  
+    *num_elements = (int *)malloc(world_size * sizeof(int)); 
+    for (int i = 0; i < world_size; i++)
+    {
+        if (i < world_size - 1)
+        {
+            num_elements[i] = block;
+        }
+        else
+        {
+            num_elements[i] = block + remaining;//last process also gets the remaining elements that dont fit in the vlock split
+        }
+        block_start_indx[i] = i * block;
+    }
+
+    process_size = num_elements[world_rank];
+
+    int block_start = 0;
+    for (int i = 0; i < world_size; i++)
+    {
+        if (i < world_size - 1)
+        {
+            num_elements_matrix[i] = block;
+        }
+        else
+        {
+            num_elements_matrix[i] = (block + remaining);
+        }
+        block_start_indx_matrix[i] = block_start;
+        block_start += num_elements_matrix[i];
+    }
+
+    MPI_Type_vector(n, 1, process_size, MPI_DOUBLE, &columns);
+    MPI_Type_commit(&columns);
+    MPI_Type_create_resized(columns, 0, 1 * sizeof(DATA_TYPE), &new_columns); 
+    MPI_Type_commit(&new_columns);
+
+    MPI_Type_vector(n, 1, n, MPI_DOUBLE, &columns_to_get);
+
+    MPI_Type_commit(&columns_to_get);
+    MPI_Type_create_resized(columns_to_get, 0, sizeof(DATA_TYPE), &new_columns_to_get); 
+    MPI_Type_commit(&new_columns_to_get);
+
 }
 
 void finish_benchmark(int n, DATA_TYPE alpha, DATA_TYPE beta, DATA_TYPE POLYBENCH_2D(A, N2, N2, n, n),
@@ -114,58 +176,6 @@ void kernel_gemver(int n, DATA_TYPE alpha, DATA_TYPE beta, DATA_TYPE POLYBENCH_2
                    DATA_TYPE POLYBENCH_1D(u2, N2, n), DATA_TYPE POLYBENCH_1D(v2, N2, n),
                    DATA_TYPE POLYBENCH_1D(w, N2, n), DATA_TYPE POLYBENCH_1D(x, N2, n), DATA_TYPE POLYBENCH_1D(y, N2, n),
                    DATA_TYPE POLYBENCH_1D(z, N2, n)) {
-
-    //split into blocks to distribute over the processes
-    int block = n / world_size;
-    int remaining = n % world_size;
-
-    int *block_start_indx = (int *)malloc(world_size * sizeof(int));  
-    int *num_elements = (int *)malloc(world_size * sizeof(int)); 
-    for (int i = 0; i < world_size; i++)
-    {
-        if (i < world_size - 1)
-        {
-            num_elements[i] = block;
-        }
-        else
-        {
-            num_elements[i] = block + remaining;//last process also gets the remaining elements that dont fit in the vlock split
-        }
-        block_start_indx[i] = i * block;
-    }
-
-    int process_size = num_elements[world_rank];
-
-    MPI_Datatype columns, new_columns;//used to send tge blocks of the 2d array
-    MPI_Type_vector(n, 1, process_size, MPI_DOUBLE, &columns);
-
-    MPI_Type_commit(&columns);
-    MPI_Type_create_resized(columns, 0, 1 * sizeof(DATA_TYPE), &new_columns); 
-    MPI_Type_commit(&new_columns);
-
-    MPI_Datatype columns_to_get, new_columns_to_get;
-    MPI_Type_vector(n, 1, n, MPI_DOUBLE, &columns_to_get);
-
-    MPI_Type_commit(&columns_to_get);
-    MPI_Type_create_resized(columns_to_get, 0, sizeof(DATA_TYPE), &new_columns_to_get); 
-    MPI_Type_commit(&new_columns_to_get);
-
-    int *block_start_indx_matrix = (int *)malloc(world_size * sizeof(int)); 
-    int *num_elements_matrix = (int *)malloc(world_size * sizeof(int)); 
-    int block_start = 0;
-    for (int i = 0; i < world_size; i++)
-    {
-        if (i < world_size - 1)
-        {
-            num_elements_matrix[i] = block;
-        }
-        else
-        {
-            num_elements_matrix[i] = (block + remaining);
-        }
-        block_start_indx_matrix[i] = block_start;
-        block_start += num_elements_matrix[i];
-    }
 
     POLYBENCH_2D_ARRAY_DECL(process_A, DATA_TYPE, N2, process_size, n, process_size);
     POLYBENCH_1D_ARRAY_DECL(process_z, DATA_TYPE, process_size, process_size);
