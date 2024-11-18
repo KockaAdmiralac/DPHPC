@@ -8,6 +8,8 @@ void initialise_benchmark(int argc, char** argv, int tsteps, int n, DATA_TYPE PO
                           DATA_TYPE POLYBENCH_2D(v, N2, N2, n, n), DATA_TYPE POLYBENCH_2D(p, N2, N2, n, n),
                           DATA_TYPE POLYBENCH_2D(q, N2, N2, n, n)) {
     (void)tsteps;
+    (void)argc;
+    (void)argv;
     (void)n;
     (void)u;
     (void)v;
