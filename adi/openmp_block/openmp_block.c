@@ -6,15 +6,24 @@
 #include <stdio.h>
 #include <omp.h> 
 
-void initialise_benchmark(int tsteps, int n, DATA_TYPE POLYBENCH_2D(u, N2, N2, n, n),
+void initialise_benchmark(int argc, char** argv, int tsteps, int n, DATA_TYPE POLYBENCH_2D(u, N2, N2, n, n),
                           DATA_TYPE POLYBENCH_2D(v, N2, N2, n, n), DATA_TYPE POLYBENCH_2D(p, N2, N2, n, n),
                           DATA_TYPE POLYBENCH_2D(q, N2, N2, n, n)) {
     (void)tsteps;
+    (void)argc;
+    (void)argv;
     (void)n;
     (void)u;
     (void)v;
     (void)p;
     (void)q;
+
+    int i, j;
+
+    for (i = 0; i < n; i++)
+        for (j = 0; j < n; j++) {
+            u[i][j] = (DATA_TYPE)(i + n - j) / n;
+        }
 }
 
 void finish_benchmark(int tsteps, int n, DATA_TYPE POLYBENCH_2D(u, N2, N2, n, n),
@@ -36,7 +45,7 @@ void finish_benchmark(int tsteps, int n, DATA_TYPE POLYBENCH_2D(u, N2, N2, n, n)
  */
 void kernel_adi(int tsteps, int n, DATA_TYPE POLYBENCH_2D(u, N2, N2, n, n), DATA_TYPE POLYBENCH_2D(v, N2, N2, n, n),
                 DATA_TYPE POLYBENCH_2D(p, N2, N2, n, n), DATA_TYPE POLYBENCH_2D(q, N2, N2, n, n)) {
-    int t, i, j;
+    int t, j;
     DATA_TYPE DX, DY, DT;
     DATA_TYPE B1, B2;
     DATA_TYPE mul1, mul2;
@@ -63,8 +72,8 @@ void kernel_adi(int tsteps, int n, DATA_TYPE POLYBENCH_2D(u, N2, N2, n, n), DATA
     DATA_TYPE const_neg_a = -a;
     DATA_TYPE const_1_2a = SCALAR_VAL(1.0) + SCALAR_VAL(2.0) * a;
     DATA_TYPE const_neg_c = -c;
-    int block_size_i = 8; // Block size for outer loop (rows)
-    int block_size_j = 8; // Block size for inner loop (columns)
+    int block_size_i = 6; // Block size for outer loop (rows)
+    int block_size_j = 6; // Block size for inner loop (columns)
     DATA_TYPE denom_inv;
     //  TODO also try to store local variables p[i][j - 1] and q[i][j - 1] and see if it improves performance or reduces noise to OPENMP
     int jj;
