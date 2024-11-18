@@ -30,6 +30,9 @@ static int num_elements_matrix[MAX_PROCESSES];
 MPI_Datatype columns, new_columns;//used to send tge blocks of the 2d array
 MPI_Datatype columns_to_get, new_columns_to_get;
 
+double *process_z, *process_v1, *process_v2, *process_x, *process_w;
+double *process_A;
+
 /*
 VERSION 3 
 central process distributes the work in blocks equally on all others and collects results
@@ -86,8 +89,6 @@ void initialise_benchmark(int argc, char **argv, int n, DATA_TYPE *alpha, DATA_T
     block = n / world_size;
     remaining = n % world_size;
 
-    *block_start_indx = (int *)malloc(world_size * sizeof(int));  
-    *num_elements = (int *)malloc(world_size * sizeof(int)); 
     for (int i = 0; i < world_size; i++)
     {
         if (i < world_size - 1)
@@ -128,6 +129,31 @@ void initialise_benchmark(int argc, char **argv, int n, DATA_TYPE *alpha, DATA_T
     MPI_Type_commit(&columns_to_get);
     MPI_Type_create_resized(columns_to_get, 0, sizeof(DATA_TYPE), &new_columns_to_get); 
     MPI_Type_commit(&new_columns_to_get);
+
+    process_z = POLYBENCH_ALLOC_1D_ARRAY(process_size, DATA_TYPE);
+    process_v1 = POLYBENCH_ALLOC_1D_ARRAY(process_size, DATA_TYPE);
+    process_v2 = POLYBENCH_ALLOC_1D_ARRAY(process_size, DATA_TYPE);
+    process_x = POLYBENCH_ALLOC_1D_ARRAY(process_size, DATA_TYPE);
+    process_w = POLYBENCH_ALLOC_1D_ARRAY(N2, DATA_TYPE);
+    process_A = POLYBENCH_ALLOC_1D_ARRAY(N2 * process_size, DATA_TYPE);
+    for (int i = 0; i < process_size; i++)
+    {
+        int i_value = i + block_start_indx[world_rank];
+        process_z[i] = ((i_value + 1) / fn) / 9.0;
+        process_v1[i] = ((i_value + 1) / fn) / 4.0;
+        process_v2[i] = ((i_value + 1) / fn) / 6.0;
+        process_x[i] = 0.0;
+    }
+
+
+    for (int i = 0; i < n; i++)
+    {
+        process_w[i] = 0.0;
+        for (int j = 0; j < process_size; j++){
+            
+            process_A[i * process_size + j] = (DATA_TYPE)(i * (j + block_start_indx[world_rank]) % n) / n;
+        }
+    }
 
 }
 
@@ -177,32 +203,6 @@ void kernel_gemver(int n, DATA_TYPE alpha, DATA_TYPE beta, DATA_TYPE POLYBENCH_2
                    DATA_TYPE POLYBENCH_1D(w, N2, n), DATA_TYPE POLYBENCH_1D(x, N2, n), DATA_TYPE POLYBENCH_1D(y, N2, n),
                    DATA_TYPE POLYBENCH_1D(z, N2, n)) {
 
-    POLYBENCH_2D_ARRAY_DECL(process_A, DATA_TYPE, N2, process_size, n, process_size);
-    POLYBENCH_1D_ARRAY_DECL(process_z, DATA_TYPE, process_size, process_size);
-    POLYBENCH_1D_ARRAY_DECL(process_x, DATA_TYPE, process_size, process_size);
-    POLYBENCH_1D_ARRAY_DECL(process_w, DATA_TYPE, N2, n);
-    POLYBENCH_1D_ARRAY_DECL(process_v1, DATA_TYPE, process_size, process_size);
-    POLYBENCH_1D_ARRAY_DECL(process_v2, DATA_TYPE, process_size, process_size);
-
-    DATA_TYPE fn = (DATA_TYPE)n;
-    for (int i = 0; i < process_size; i++)
-    {
-        int i_value = i + block_start_indx[world_rank];
-        (*process_z)[i] = ((i_value + 1) / fn) / 9.0;
-        (*process_v1)[i] = ((i_value + 1) / fn) / 4.0;
-        (*process_v2)[i] = ((i_value + 1) / fn) / 6.0;
-        (*process_x)[i] = 0.0;
-    
-    }
-    for (int i = 0; i < n; i++)
-    {
-        (*process_w)[i] = 0.0;
-        for (int j = 0; j < process_size; j++){
-            
-            (*process_A)[i][j] = (DATA_TYPE)(i * (j + block_start_indx[world_rank]) % n) / n;
-        }
-    }
-
     /*
     calculate  A = A + u1*v1 + u2*v2
     */
@@ -210,7 +210,7 @@ void kernel_gemver(int n, DATA_TYPE alpha, DATA_TYPE beta, DATA_TYPE POLYBENCH_2
     {
         for (int j = 0; j < process_size; j++)
         {
-            (*process_A)[i][j] = (*process_A)[i][j] + u1[i] * (*process_v1)[j] + u2[i] * (*process_v2)[j];
+            process_A[i * process_size + j] += u1[i] * process_v1[j] + u2[i] * process_v2[j];
         }
     }
     
@@ -224,13 +224,13 @@ void kernel_gemver(int n, DATA_TYPE alpha, DATA_TYPE beta, DATA_TYPE POLYBENCH_2
     {
         for (int j = 0; j < process_size; j++)
         {
-            (*process_x)[j] = (*process_x)[j] + beta * (*process_A)[i][j] * y[i];
+            process_x[j] += beta * process_A[i * process_size + j] * y[i];
         }
     }
 
     for (int j = 0; j < process_size; j++)//careful need to add z outside of i loop!
     {
-        (*process_x)[j] += (*process_z)[j];
+        process_x[j] += process_z[j];
     }
 
     //send results to first process
@@ -244,7 +244,7 @@ void kernel_gemver(int n, DATA_TYPE alpha, DATA_TYPE beta, DATA_TYPE POLYBENCH_2
     {
         for (int j = 0; j < process_size; j++)
         {
-            (*process_w)[i] = (*process_w)[i] + alpha * (*process_A)[i][j] * (*process_x)[j];
+            process_w[i] += alpha * process_A[i * process_size + j] * process_x[j];
         }
     }
     //combine all process w to the main w in process 0
