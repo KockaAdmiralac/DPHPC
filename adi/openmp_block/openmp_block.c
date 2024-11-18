@@ -3,7 +3,6 @@
 
 /* Include benchmark-specific header. */
 #include "adi.h"
-#include <stdio.h>
 #include <omp.h> 
 
 void initialise_benchmark(int argc, char** argv, int tsteps, int n, DATA_TYPE POLYBENCH_2D(u, N2, N2, n, n),
