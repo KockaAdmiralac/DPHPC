@@ -68,15 +68,13 @@ int main(int argc, char **argv) {
     /* Run kernel. */
     kernel_gemver(n, alpha, beta, POLYBENCH_ARRAY(A), POLYBENCH_ARRAY(u1), POLYBENCH_ARRAY(v1), POLYBENCH_ARRAY(u2),
                   POLYBENCH_ARRAY(v2), POLYBENCH_ARRAY(w), POLYBENCH_ARRAY(x), POLYBENCH_ARRAY(y), POLYBENCH_ARRAY(z));
-
-
-
-    finish_benchmark(n, alpha, beta, POLYBENCH_ARRAY(A), POLYBENCH_ARRAY(u1), POLYBENCH_ARRAY(v1), POLYBENCH_ARRAY(u2),
-                     POLYBENCH_ARRAY(v2), POLYBENCH_ARRAY(w), POLYBENCH_ARRAY(x), POLYBENCH_ARRAY(y),
-                     POLYBENCH_ARRAY(z));
+    
     
     /* Stop and print timer. */
     polybench_stop_instruments;
+    finish_benchmark(n, alpha, beta, POLYBENCH_ARRAY(A), POLYBENCH_ARRAY(u1), POLYBENCH_ARRAY(v1), POLYBENCH_ARRAY(u2),
+                     POLYBENCH_ARRAY(v2), POLYBENCH_ARRAY(w), POLYBENCH_ARRAY(x), POLYBENCH_ARRAY(y),
+                     POLYBENCH_ARRAY(z));
     polybench_print_instruments;
 
     /* Prevent dead-code elimination. All live-out data must be printed

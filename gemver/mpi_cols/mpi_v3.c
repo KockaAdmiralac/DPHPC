@@ -92,15 +92,15 @@ void finish_benchmark(int n, DATA_TYPE alpha, DATA_TYPE beta, DATA_TYPE POLYBENC
 
     if(world_rank !=0){
         /* Be clean. */
-        POLYBENCH_FREE_ARRAY(A);
-        POLYBENCH_FREE_ARRAY(u1);
-        POLYBENCH_FREE_ARRAY(v1);
-        POLYBENCH_FREE_ARRAY(u2);
-        POLYBENCH_FREE_ARRAY(v2);
-        POLYBENCH_FREE_ARRAY(w);
-        POLYBENCH_FREE_ARRAY(x);
-        POLYBENCH_FREE_ARRAY(y);
-        POLYBENCH_FREE_ARRAY(z);
+        // POLYBENCH_FREE_ARRAY(A);
+        // POLYBENCH_FREE_ARRAY(u1);
+        // POLYBENCH_FREE_ARRAY(v1);
+        // POLYBENCH_FREE_ARRAY(u2);
+        // POLYBENCH_FREE_ARRAY(v2);
+        // POLYBENCH_FREE_ARRAY(w);
+        // POLYBENCH_FREE_ARRAY(x);
+        // POLYBENCH_FREE_ARRAY(y);
+        // POLYBENCH_FREE_ARRAY(z);
 
         exit(0);
     }
@@ -167,24 +167,14 @@ void kernel_gemver(int n, DATA_TYPE alpha, DATA_TYPE beta, DATA_TYPE POLYBENCH_2
         block_start += num_elements_matrix[i];
     }
 
-    //init rest of data 
-    //in processes so for local dta we dont need all the size for the arrays/matrices
-    POLYBENCH_2D_ARRAY_DECL(process_A, DATA_TYPE, process_size, N2, process_size, n);
+    POLYBENCH_2D_ARRAY_DECL(process_A, DATA_TYPE, N2, process_size, n, process_size);
     POLYBENCH_1D_ARRAY_DECL(process_z, DATA_TYPE, process_size, process_size);
     POLYBENCH_1D_ARRAY_DECL(process_x, DATA_TYPE, process_size, process_size);
-    POLYBENCH_1D_ARRAY_DECL(process_w, DATA_TYPE, process_size, process_size);
+    POLYBENCH_1D_ARRAY_DECL(process_w, DATA_TYPE, N2, n);
     POLYBENCH_1D_ARRAY_DECL(process_v1, DATA_TYPE, process_size, process_size);
     POLYBENCH_1D_ARRAY_DECL(process_v2, DATA_TYPE, process_size, process_size);
 
     DATA_TYPE fn = (DATA_TYPE)n;
-    for (int i = 0; i < n; i++)
-    {
-        (*process_w)[i] = 0.0;
-        for (int j = 0; j < process_size; j++){
-            
-            (*process_A)[i][j] = (DATA_TYPE)(i * (j + block_start_indx[world_rank]) % n) / n;
-        }
-    }
     for (int i = 0; i < process_size; i++)
     {
         int i_value = i + block_start_indx[world_rank];
@@ -192,6 +182,15 @@ void kernel_gemver(int n, DATA_TYPE alpha, DATA_TYPE beta, DATA_TYPE POLYBENCH_2
         (*process_v1)[i] = ((i_value + 1) / fn) / 4.0;
         (*process_v2)[i] = ((i_value + 1) / fn) / 6.0;
         (*process_x)[i] = 0.0;
+    
+    }
+    for (int i = 0; i < n; i++)
+    {
+        (*process_w)[i] = 0.0;
+        for (int j = 0; j < process_size; j++){
+            
+            (*process_A)[i][j] = (DATA_TYPE)(i * (j + block_start_indx[world_rank]) % n) / n;
+        }
     }
 
     /*
@@ -206,7 +205,7 @@ void kernel_gemver(int n, DATA_TYPE alpha, DATA_TYPE beta, DATA_TYPE POLYBENCH_2
     }
     
     MPI_Gatherv(process_A, process_size , new_columns, A, num_elements_matrix, block_start_indx_matrix, new_columns_to_get , 0, MPI_COMM_WORLD);
-    
+
     /*
     calculate  x = x + b * A^T * y + z
     */
@@ -235,20 +234,17 @@ void kernel_gemver(int n, DATA_TYPE alpha, DATA_TYPE beta, DATA_TYPE POLYBENCH_2
     {
         for (int j = 0; j < process_size; j++)
         {
-            (*process_w)[i] = (*process_w)[i] + alpha * (*process_A)[i][j] * x[j];
+            (*process_w)[i] = (*process_w)[i] + alpha * (*process_A)[i][j] * (*process_x)[j];
         }
     }
     //combine all process w to the main w in process 0
     MPI_Reduce(process_w, w, n, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
 
-    //cleanup
-    POLYBENCH_FREE_ARRAY(num_elements);
-    POLYBENCH_FREE_ARRAY(num_elements_matrix);
-    POLYBENCH_FREE_ARRAY(block_start_indx);
-    POLYBENCH_FREE_ARRAY(block_start_indx_matrix);
-    POLYBENCH_FREE_ARRAY(process_A);
-    POLYBENCH_FREE_ARRAY(process_z);
-    POLYBENCH_FREE_ARRAY(process_x);
+    POLYBENCH_FREE_ARRAY(process_v2);
+    POLYBENCH_FREE_ARRAY(process_v1);
     POLYBENCH_FREE_ARRAY(process_w);
+    POLYBENCH_FREE_ARRAY(process_x);
+    POLYBENCH_FREE_ARRAY(process_z);
+    POLYBENCH_FREE_ARRAY(process_A);
 
 }
