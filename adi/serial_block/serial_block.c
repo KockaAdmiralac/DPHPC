@@ -44,7 +44,7 @@ void finish_benchmark(int tsteps, int n, DATA_TYPE POLYBENCH_2D(u, N2, N2, n, n)
  */
 void kernel_adi(int tsteps, int n, DATA_TYPE POLYBENCH_2D(u, N2, N2, n, n), DATA_TYPE POLYBENCH_2D(v, N2, N2, n, n),
                 DATA_TYPE POLYBENCH_2D(p, N2, N2, n, n), DATA_TYPE POLYBENCH_2D(q, N2, N2, n, n)) {
-    int t, i, j;
+    int t, j;
     DATA_TYPE DX, DY, DT;
     DATA_TYPE B1, B2;
     DATA_TYPE mul1, mul2;
