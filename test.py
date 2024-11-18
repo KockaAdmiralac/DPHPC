@@ -142,7 +142,8 @@ def compile(
     assert scheme in get_args(ParallelisationScheme)
 
     variant_dir = get_variant_dir(benchmark, variant)
-    assert variant_dir.exists()
+    if not variant_dir.exists():
+        raise AssertionError(f"{variant_dir} doesn't exist")
 
     opt = load_options(benchmark, variant)
 

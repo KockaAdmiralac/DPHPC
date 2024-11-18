@@ -55,4 +55,7 @@ RUN apt install --allow-unauthenticated -y \
     apt-file && \
     apt-file update
 
+ENV OMPI_ALLOW_RUN_AS_ROOT=1
+ENV OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
+
 ENTRYPOINT ["/usr/sbin/sshd", "-D"]
