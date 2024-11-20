@@ -5,15 +5,15 @@ import numpy as np
 import os
 import json
 
-directory = "plot\\results\\gemver"
-mpi_implementations = [ 'mpi_basic', 'mpi_non_block', 'mpi_cols']
-cuda_implementations = ['cuda_cublas', 'cuda_general_multithreaded', 'cuda_improved2', 'cuda_improved3', 'cuda_improved4', 'cuda_improved5', 'cuda_improved6']
-serial_implementations = ['serial_block_first_loop', 'serial_block_second_loop', 'serial_extracted_alpha', 'serial_extracted_beta', 'serial_merge_loops', 'serial_neater_c', 'serial_reorder_second_loop', 'serial_vectorized_first_loop', 'serial_vectorized_second_loop']
-open_implementations = ['openmp_basic', 'openmp_basic_all', 'openmp_block_second_loop', 'openmp_merged', 'openmp_reorder_atomic', 'openmp_reorder_reduce']
-implementations = ['cuda_cublas', 'cuda_general_multithreaded', 'cuda_improved2', 'cuda_improved3', 'cuda_improved4', 'cuda_improved5', 'cuda_improved6', 'mpi_basic', 'mpi_cols', 'mpi_non_block', 'openmp_basic', 'openmp_basic_all', 'openmp_block_second_loop', 'openmp_merged', 'openmp_reorder_atomic', 'openmp_reorder_reduce', 'serial_block_first_loop', 'serial_block_second_loop', 'serial_extracted_alpha', 'serial_extracted_beta', 'serial_merge_loops', 'serial_neater_c', 'serial_reorder_second_loop', 'serial_vectorized_first_loop', 'serial_vectorized_second_loop']
-threads = [ '1', '2', '3','4','6','8']
-N2 = ['1000', '2000', '3000', '4000','5000','6000','7000','8000','9000','10000','11000','12000','13000','14000', '15000','1024','2048', '4096','8192' ]
-N2_c = ['1000', '2000', '3000', '4000','5000','6000','7000','8000','9000','10000','11000','1024','2048', '4096','8192' ]
+directory = "plot\\results\\adi"
+mpi_implementations = [ 'mpi_1']
+cuda_implementations = ['cuda_multithreaded12', 'cuda_multithreaded4', 'cuda_multithreaded5', 'cuda_multithreaded6', 'cuda_multithreaded8', 'cuda_multithreaded9']
+serial_implementations = ['serial_block', 'serial_opt']
+open_implementations = []
+implementations = ['cuda_multithreaded12', 'cuda_multithreaded4', 'cuda_multithreaded5', 'cuda_multithreaded6', 'cuda_multithreaded8', 'cuda_multithreaded9', 'mpi_1', 'serial_block', 'serial_opt']
+threads = [ '1', '2', '3','4','6','8','12','16']
+N2 = ['1000', '2000', '3000', '4000','5000','6000','7000','8000','9000','10000','11000','12000','13000','14000', '15000','1024','2048', '4096' ]
+N2_c = ['1000', '2000', '3000', '4000','5000','1024','2048', '4096' ]
 data = []
 colors = sns.color_palette()
 
@@ -23,9 +23,11 @@ for filename in os.listdir(directory):
         for single_file in os.listdir(dir):
             if "latest" not in single_file:
                 file_path = os.path.join(dir, single_file)
-                t = single_file.split('.')[1][-1]
+                t_temp = single_file.split('_')[-1]
+                t = t_temp.replace('.json', '')
                 n = single_file.split('_')[-2]
-                n2 = n[2:]
+                n2_t = n[2:]
+                n2 = n2_t.replace('TSTEPS15', '')
                 with open(file_path) as f:
                     d = json.load(f)
                     temp_data = {}
@@ -42,7 +44,8 @@ for filename in os.listdir(directory):
 
 df = pd.DataFrame(data)
 baseline_df = df.loc[df['implementation'] == 'serial_base']
-
+help = df.loc[df['implementation'] == 'mpi_1']
+print(help)
 for imp in implementations:
     if(imp in cuda_implementations):
         for nn in N2_c:
@@ -77,7 +80,7 @@ serial_df = serial_df.sort_values('N2')
 plot_list = [mpi_implementations, cuda_implementations, serial_implementations, open_implementations]
 df_list = [mpi_df_8, cuda_df, serial_df, open_df_8]
 filename_list = ['mpi_t_8', 'cuda', 'serial', 'open_t_8']
-title_list = ['GEMVER MPI - 8 processes', 'GEMVER cuda', 'GEMVER serial', 'GEMVER OpenMp - 8 threads']
+title_list = ['ADI MPI - 8 processes', 'ADI cuda', 'ADI serial', 'ADI OpenMp - 8 threads']
 
 for i,imp_list in enumerate(plot_list):
     fig, ax = plt.subplots(figsize=(9,5))
@@ -109,9 +112,9 @@ for i,imp_list in enumerate(plot_list):
         # ax.fill_between(x, lower, upper, alpha=0.2)
     ax.set_xlabel('N size')
     ax.set_ylabel('x speedup')
-    ax.legend(loc="upper right")
-    # aaaaa=title_list[i]
+    if (i!=0):
+        ax.legend(loc="upper right")
     plt.title(title_list[i])
 
-    file_path = "plot\\imgs\\gemver" + filename + ".png"
+    file_path = "plot\\imgs\\adi" + filename + ".png"
     plt.savefig(file_path)
