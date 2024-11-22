@@ -20,6 +20,7 @@
 /* Include benchmark-specific header. */
 #include "adi.h"
 
+#ifndef DISABLE_CHECKING
 /* DCE code. Must scan the entire live-out data.
    Can be used also to check the correctness of the output. */
 static void print_array(int n, DATA_TYPE POLYBENCH_2D(u, N2, N2, n, n), const char* arr_name)
@@ -41,6 +42,7 @@ static void print_array(int n, DATA_TYPE POLYBENCH_2D(u, N2, N2, n, n), const ch
     print_binary_array(n * n, (double*)u, arr_name[0]);
 #endif
 }
+#endif
 
 int main(int argc, char** argv) {
     /* Retrieve problem size. */

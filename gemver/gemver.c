@@ -20,6 +20,7 @@
 /* Include benchmark-specific header. */
 #include "gemver.h"
 
+#ifndef DISABLE_CHECKING
 /* DCE code. Must scan the entire live-out data.
    Can be used also to check the correctness of the output. */
 static void print_array(int n, DATA_TYPE POLYBENCH_1D(w, N2, n), const char *array_name) {
@@ -38,6 +39,7 @@ static void print_array(int n, DATA_TYPE POLYBENCH_1D(w, N2, n), const char *arr
     print_binary_array(n, (double *)w, array_name[0]);
 #endif
 }
+#endif
 
 int main(int argc, char **argv) {
     (void)argc;
