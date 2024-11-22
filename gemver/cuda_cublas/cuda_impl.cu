@@ -29,6 +29,8 @@ void initialise_benchmark(int argc, char **argv, int n, DATA_TYPE *alpha, DATA_T
                           DATA_TYPE POLYBENCH_1D(v2, N2, n), DATA_TYPE POLYBENCH_1D(w, N2, n),
                           DATA_TYPE POLYBENCH_1D(x, N2, n), DATA_TYPE POLYBENCH_1D(y, N2, n),
                           DATA_TYPE POLYBENCH_1D(z, N2, n)) {
+    (void)argc;
+    (void)argv;
     (void)alpha;
     (void)beta;
     int i, j;

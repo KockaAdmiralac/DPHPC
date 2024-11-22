@@ -31,6 +31,8 @@ void initialise_benchmark(int argc, char **argv, int n, DATA_TYPE *alpha, DATA_T
                           DATA_TYPE POLYBENCH_1D(z, N2, n)) {
     (void)alpha;
     (void)beta;
+    (void)argc;
+    (void)argv;
     gpuErrchk(cudaMalloc(&device_addrs.A_dev, sizeof(DATA_TYPE) * n * n));
     gpuErrchk(cudaMalloc(&device_addrs.u1_dev, sizeof(DATA_TYPE) * n));
     gpuErrchk(cudaMalloc(&device_addrs.v1_dev, sizeof(DATA_TYPE) * n));
@@ -71,14 +73,13 @@ void initialise_benchmark(int argc, char **argv, int n, DATA_TYPE *alpha, DATA_T
 
     device_addrs.tpb_3.x = tpb;
     device_addrs.bpg_3.x = max_threads_for_gpu / device_addrs.tpb_3.x;
-    int i, j;
 
     *alpha = 1.5;
     *beta = 1.2;
 
     DATA_TYPE fn = (DATA_TYPE)n;
 
-    for (i = 0; i < n; i++) {
+    for (int i = 0; i < n; i++) {
         u1[i] = i;
         u2[i] = ((i + 1) / fn) / 2.0;
         v1[i] = ((i + 1) / fn) / 4.0;
@@ -87,7 +88,7 @@ void initialise_benchmark(int argc, char **argv, int n, DATA_TYPE *alpha, DATA_T
         z[i] = ((i + 1) / fn) / 9.0;
         x[i] = 0.0;
         w[i] = 0.0;
-        for (j = 0; j < n; j++) A[i][j] = (DATA_TYPE)(i * j % n) / n;
+        for (int j = 0; j < n; j++) A[i][j] = (DATA_TYPE)(i * j % n) / n;
     }
 
     gpuErrchk(cudaMalloc(&device_addrs.A_dev, sizeof(DATA_TYPE) * n * n));
