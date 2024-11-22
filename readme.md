@@ -114,6 +114,9 @@ When `test.py` outputs a discrepancy between the output data and ground truth, i
 
 If you'd like to see the numbers in a humanly-readable format, you can pass the option `--human_readable_output`. This can be significantly slower, but helps with debugging on smaller datasets.
 
+### Profiling
+If you want to measure how long a piece of your variant code takes, so that you can find out where the bottleneck is, you can use the `--profile` option. In your code, place the `START_LOOP(loop1)` and `END_LOOP(loop1)` markers (from the `profile.h` header), and the script will print how long each of the markers you placed took to execute. If multiple threads are running the segment of code where you place the marker, you will be able to see average, minimum and maximum runtime for each thread.
+
 ### Changing result paths
 If you'd like to change where timing results and output data are stored, the following options are available:
 
