@@ -12,6 +12,7 @@ import subprocess
 import sys
 import time
 from typing import Any, Literal, Optional, get_args
+from typing_extensions import Dict, List
 
 import numpy as np
 from tabulate import tabulate
@@ -20,6 +21,7 @@ import datacheck
 import options
 
 ParallelisationScheme = Literal["serial", "openmp", "mpi", "cuda"]
+ProfilingData = Dict[str, List[float]]
 
 mpiexec_path = None
 
@@ -63,6 +65,7 @@ class Result:
     std_deviation: float
     data: datacheck.ParsedOutputData
     used_cached_results: bool
+    profiling_data: ProfilingData
 
 
 def get_script_dir() -> Path:
@@ -284,7 +287,7 @@ def serialise_defines(defines: dict[str, str]) -> str:
     return "".join(map(lambda it: it[0] + it[1], defines.items()))
 
 
-def lowlevel_run(binary: Binary, threads: int) -> tuple[float, bytes]:
+def lowlevel_run(binary: Binary, threads: int) -> tuple[float, bytes, ProfilingData]:
     global mpiexec_path
     # Find arguments for running the benchmark
     external_env = dict(os.environ)
@@ -302,6 +305,7 @@ def lowlevel_run(binary: Binary, threads: int) -> tuple[float, bytes]:
         args = [str(binary.path)]
         env = {}
     env.update(external_env)
+    profiling_data: ProfilingData = {}
     process = subprocess.Popen(
         args,
         env=env,
@@ -315,9 +319,17 @@ def lowlevel_run(binary: Binary, threads: int) -> tuple[float, bytes]:
     if exit_code != 0:
         print(stderr, file=sys.stderr)
         raise ValueError(f"Exit code {exit_code} for {binary.path}")
-    time_taken = float(stdout)
+    time_taken = 0.0
+    for line in stdout.strip().split(b"\n"):
+        if b" " in line:
+            label, time_str = line.split(b" ")
+            if label not in profiling_data:
+                profiling_data[label.decode()] = []
+            profiling_data[label.decode()].append(float(time_str))
+        else:
+            time_taken = float(line)
     binary_data = stderr
-    return (time_taken, binary_data)
+    return (time_taken, binary_data, profiling_data)
 
 
 def check_results_or_log_failure(
@@ -425,12 +437,13 @@ def run(
             with open(cached_results_path, "r") as results_file:
                 timing_results = json.load(results_file)["timing"]
 
+    profiling_data: ProfilingData = {}
     if not did_use_cached_results:
         # Run the benchmark
 
         for _ in range(runs):
 
-            (time_taken, raw_binary_data) = lowlevel_run(binary, threads)
+            time_taken, raw_binary_data, profiling_data = lowlevel_run(binary, threads)
 
             timing_results.append(time_taken)
             if not disable_checking:
@@ -494,6 +507,7 @@ def run(
         float(np.std(deviations)),
         data_output,
         did_use_cached_results,
+        profiling_data,
     )
 
 
@@ -523,6 +537,8 @@ def main_run(args: Namespace) -> None:
     variants = sorted(set(args.variants))
 
     defines = dict([x.split("=")[:2] for x in args.set_defines.split(",")])
+    if args.profile:
+        defines["ENABLE_PROFILING"] = "1"
 
     if args.disable_checking:
         print("\033[93mWARNING: all checking disabled\033[0m", file=sys.stderr)
@@ -646,6 +662,28 @@ def main_run(args: Namespace) -> None:
         )
     )
 
+    if args.profile:
+        print("\nProfiling data:")
+        print(
+            tabulate(
+                [
+                    (
+                        result.variant,
+                        result.threads,
+                        label,
+                        np.mean(result.profiling_data[label]),
+                        np.min(result.profiling_data[label]),
+                        np.max(result.profiling_data[label]),
+                    )
+                    for (result, label) in itertools.product(
+                        results, results[0].profiling_data.keys()
+                    )
+                    if label in result.profiling_data
+                ],
+                headers=["Variant", "Threads", "Label", "Avg", "Min", "Max"],
+            )
+        )
+
 
 if __name__ == "__main__":
     parser = ArgumentParser(
@@ -723,6 +761,12 @@ if __name__ == "__main__":
         "--disable_checking",
         action="store_true",
         help="Disable all ouput data checking",
+    )
+
+    parser.add_argument(
+        "--profile",
+        action="store_true",
+        help="Enables profiling.",
     )
 
     parser.add_argument(
