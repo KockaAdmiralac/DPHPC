@@ -18,3 +18,4 @@
 | `openmp_reorder_reduce`         | `serial_reorder_second_loop` | 6.5        | 6.5  | 6.5  | 7.0  |
 | `openmp_block_second_loop`      | `openmp_reorder_reduce`      | 6.0        | 6.5  | 6.5  | 6.5  |
 | `openmp_merged`                 | `openmp_block_second_loop`   | 6.5        | 10.0 | 10.0 | 10.0 |
+| `openmp_avx2`                   | `openmp_merged`              | ?          | ?    | ?    | ?    |
