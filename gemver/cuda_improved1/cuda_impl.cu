@@ -25,26 +25,14 @@ void initialise_benchmark(int argc, char **argv, int n, DATA_TYPE *alpha, DATA_T
                           DATA_TYPE POLYBENCH_1D(v2, N2, n), DATA_TYPE POLYBENCH_1D(w, N2, n),
                           DATA_TYPE POLYBENCH_1D(x, N2, n), DATA_TYPE POLYBENCH_1D(y, N2, n),
                           DATA_TYPE POLYBENCH_1D(z, N2, n)) {
-    (void)n;
-    (void)alpha;
-    (void)beta;
-    (void)A;
-    (void)u1;
-    (void)v1;
-    (void)u2;
-    (void)v2;
-    (void)w;
-    (void)x;
-    (void)y;
-    (void)z;
-    int i, j;
-
     *alpha = 1.5;
     *beta = 1.2;
+    (void)argc;
+    (void)argv;
 
     DATA_TYPE fn = (DATA_TYPE)n;
 
-    for (i = 0; i < n; i++) {
+    for (int i = 0; i < n; i++) {
         u1[i] = i;
         u2[i] = ((i + 1) / fn) / 2.0;
         v1[i] = ((i + 1) / fn) / 4.0;
@@ -53,7 +41,7 @@ void initialise_benchmark(int argc, char **argv, int n, DATA_TYPE *alpha, DATA_T
         z[i] = ((i + 1) / fn) / 9.0;
         x[i] = 0.0;
         w[i] = 0.0;
-        for (j = 0; j < n; j++) A[i][j] = (DATA_TYPE)(i * j % n) / n;
+        for (int j = 0; j < n; j++) A[i][j] = (DATA_TYPE)(i * j % n) / n;
     }
 
     gpuErrchk(cudaMalloc(&kdata.A_dev, sizeof(DATA_TYPE) * n * n));
@@ -84,16 +72,13 @@ void finish_benchmark(int n, DATA_TYPE alpha, DATA_TYPE beta, DATA_TYPE POLYBENC
                       DATA_TYPE POLYBENCH_1D(u2, N2, n), DATA_TYPE POLYBENCH_1D(v2, N2, n),
                       DATA_TYPE POLYBENCH_1D(w, N2, n), DATA_TYPE POLYBENCH_1D(x, N2, n),
                       DATA_TYPE POLYBENCH_1D(y, N2, n), DATA_TYPE POLYBENCH_1D(z, N2, n)) {
-    (void)n;
     (void)alpha;
     (void)beta;
-    (void)A;
     (void)u1;
     (void)v1;
     (void)u2;
     (void)v2;
     (void)w;
-    (void)x;
     (void)y;
     (void)z;
 
