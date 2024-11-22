@@ -73,8 +73,8 @@ void kernel_adi(int tsteps, int n, DATA_TYPE POLYBENCH_2D(u, N2, N2, n, n), DATA
     DATA_TYPE const_neg_c = -c;
     DATA_TYPE denom_inv;
     DATA_TYPE prev;
-    //  store local variable p[i][j - 1] and q[i][j - 1] to foo and reuse 
-    // 
+    //  store local variable p[i][j - 1] and q[i][j - 1] to foo and reuse
+    //
     for (t = 1; t <= _PB_TSTEPS; t++) {
         // Column Sweep
         for (int ii = 1; ii < _PB_N - 1; ii += BLOCK_SIZE) {
@@ -85,9 +85,11 @@ void kernel_adi(int tsteps, int n, DATA_TYPE POLYBENCH_2D(u, N2, N2, n, n), DATA
                     q[i][0] = v[0][i];
                     prev = p[i][jj - 1];
                     for (int j = jj; j < jj + BLOCK_SIZE && j < _PB_N - 1; j++) {
-                        denom_inv = SCALAR_VAL(1.0) / (a *prev + b);
+                        denom_inv = SCALAR_VAL(1.0) / (a * prev + b);
                         p[i][j] = -c * denom_inv;
-                        q[i][j] = (-d * u[j][i - 1] + const_1_2d * u[j][i] - f * u[j][i + 1] + const_neg_a * q[i][j - 1]) * denom_inv;
+                        q[i][j] =
+                            (-d * u[j][i - 1] + const_1_2d * u[j][i] - f * u[j][i + 1] + const_neg_a * q[i][j - 1]) *
+                            denom_inv;
                         prev = p[i][j];
                     }
                 }
@@ -98,13 +100,13 @@ void kernel_adi(int tsteps, int n, DATA_TYPE POLYBENCH_2D(u, N2, N2, n, n), DATA
             v[_PB_N - 1][i] = SCALAR_VAL(1.0);
             for (j = _PB_N - 2; j >= 8; j -= 8) {
                 v[j][i] = p[i][j] * v[j + 1][i] + q[i][j];
-                v[j - 1][i]  = p[i][j - 1] * v[j][i] + q[i][j - 1];
-                v[j - 2][i]  = p[i][j - 2] * v[j - 1][i] + q[i][j - 2];
-                v[j - 3][i]  = p[i][j - 3] * v[j - 2][i] + q[i][j - 3];
-                v[j - 4][i]  = p[i][j - 4] * v[j-3][i] + q[i][j - 4];
-                v[j - 5][i]  = p[i][j - 5] * v[j - 4][i] + q[i][j - 5];
-                v[j - 6][i]  = p[i][j - 6] * v[j - 5][i] + q[i][j - 6];
-                v[j - 7][i]  = p[i][j - 7] * v[j - 6][i] + q[i][j - 7];
+                v[j - 1][i] = p[i][j - 1] * v[j][i] + q[i][j - 1];
+                v[j - 2][i] = p[i][j - 2] * v[j - 1][i] + q[i][j - 2];
+                v[j - 3][i] = p[i][j - 3] * v[j - 2][i] + q[i][j - 3];
+                v[j - 4][i] = p[i][j - 4] * v[j - 3][i] + q[i][j - 4];
+                v[j - 5][i] = p[i][j - 5] * v[j - 4][i] + q[i][j - 5];
+                v[j - 6][i] = p[i][j - 6] * v[j - 5][i] + q[i][j - 6];
+                v[j - 7][i] = p[i][j - 7] * v[j - 6][i] + q[i][j - 7];
             }
             // // Handle remaining elements
             for (; j >= 1; j--) {
@@ -114,7 +116,6 @@ void kernel_adi(int tsteps, int n, DATA_TYPE POLYBENCH_2D(u, N2, N2, n, n), DATA
         // Row Sweep
         for (int ii = 1; ii < _PB_N - 1; ii += BLOCK_SIZE) {
             for (int jj = 1; jj < _PB_N - 1; jj += BLOCK_SIZE) {
-
                 for (int i = ii; i < ii + BLOCK_SIZE && i < _PB_N - 1; i++) {
                     u[i][0] = SCALAR_VAL(1.0);
                     p[i][0] = SCALAR_VAL(0.0);
@@ -123,7 +124,9 @@ void kernel_adi(int tsteps, int n, DATA_TYPE POLYBENCH_2D(u, N2, N2, n, n), DATA
                     for (int j = jj; j < jj + BLOCK_SIZE && j < _PB_N - 1; j++) {
                         denom_inv = SCALAR_VAL(1.0) / (d * prev + e);
                         p[i][j] = -f * denom_inv;
-                        q[i][j] = (const_neg_a * v[i - 1][j] + const_1_2a * v[i][j] + const_neg_c * v[i + 1][j] - d * q[i][j - 1]) * denom_inv;
+                        q[i][j] = (const_neg_a * v[i - 1][j] + const_1_2a * v[i][j] + const_neg_c * v[i + 1][j] -
+                                   d * q[i][j - 1]) *
+                                  denom_inv;
                         prev = p[i][j];
                     }
                 }
@@ -138,7 +141,7 @@ void kernel_adi(int tsteps, int n, DATA_TYPE POLYBENCH_2D(u, N2, N2, n, n), DATA
                 u[i][j - 1] = p[i][j - 1] * u[i][j] + q[i][j - 1];
                 u[i][j - 2] = p[i][j - 2] * u[i][j - 1] + q[i][j - 2];
                 u[i][j - 3] = p[i][j - 3] * u[i][j - 2] + q[i][j - 3];
-                u[i][j - 4] = p[i][j - 4] * u[i][j-3] + q[i][j - 4];
+                u[i][j - 4] = p[i][j - 4] * u[i][j - 3] + q[i][j - 4];
                 u[i][j - 5] = p[i][j - 5] * u[i][j - 4] + q[i][j - 5];
                 u[i][j - 6] = p[i][j - 6] * u[i][j - 5] + q[i][j - 6];
                 u[i][j - 7] = p[i][j - 7] * u[i][j - 6] + q[i][j - 7];

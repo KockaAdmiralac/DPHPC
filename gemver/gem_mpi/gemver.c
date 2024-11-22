@@ -5,12 +5,12 @@
 #include <mpi.h>
 
 /* Include benchmark-specific header. */
-#include "gemver.h"
-
 #include <math.h>
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
+
+#include "gemver.h"
 
 #define N 2000
 
@@ -41,9 +41,9 @@ static void init_array(int n, DATA_TYPE *alpha, DATA_TYPE *beta, DATA_TYPE POLYB
 }
 
 static void init_array_partial(int n, DATA_TYPE *alpha, DATA_TYPE *beta, DATA_TYPE POLYBENCH_2D(A, N, N, n, n),
-                       DATA_TYPE POLYBENCH_1D(u1, N, n), DATA_TYPE POLYBENCH_1D(u2, N, n),
-                       DATA_TYPE POLYBENCH_1D(w, N, n), DATA_TYPE POLYBENCH_1D(x, N, n),
-                       DATA_TYPE POLYBENCH_1D(y, N, n)) {
+                               DATA_TYPE POLYBENCH_1D(u1, N, n), DATA_TYPE POLYBENCH_1D(u2, N, n),
+                               DATA_TYPE POLYBENCH_1D(w, N, n), DATA_TYPE POLYBENCH_1D(x, N, n),
+                               DATA_TYPE POLYBENCH_1D(y, N, n)) {
     int i, j;
 
     *alpha = 1.5;
@@ -76,8 +76,8 @@ static void print_array(int n, DATA_TYPE POLYBENCH_1D(w, N, n)) {
     POLYBENCH_DUMP_FINISH;
 }
 
-//central process distributes the work in blocks equally on all others and collects results
-void gemver(int argc, char** argv) {
+// central process distributes the work in blocks equally on all others and collects results
+void gemver(int argc, char **argv) {
     // Initialize the MPI environment
     MPI_Init(&argc, &argv);
 
@@ -87,7 +87,7 @@ void gemver(int argc, char** argv) {
     /* Variable declaration/allocation. */
     DATA_TYPE alpha;
     DATA_TYPE beta;
-    
+
     POLYBENCH_2D_ARRAY_DECL(A, DATA_TYPE, N, N, n, n);
     POLYBENCH_1D_ARRAY_DECL(u1, DATA_TYPE, N, n);
     POLYBENCH_1D_ARRAY_DECL(v1, DATA_TYPE, N, n);
@@ -106,17 +106,16 @@ void gemver(int argc, char** argv) {
     int world_rank;
     MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
 
-    //assign mpi memory for variables
+    // assign mpi memory for variables
 
-    //for all processes
+    // for all processes
     MPI_Alloc_mem(n * sizeof(DATA_TYPE), MPI_INFO_NULL, &v1);
     MPI_Alloc_mem(n * sizeof(DATA_TYPE), MPI_INFO_NULL, &v2);
     MPI_Alloc_mem(n * sizeof(DATA_TYPE), MPI_INFO_NULL, &y);
     MPI_Alloc_mem(n * sizeof(DATA_TYPE), MPI_INFO_NULL, &x);
 
-    //for first process only
-    if (world_rank == 0)
-    {
+    // for first process only
+    if (world_rank == 0) {
         MPI_Alloc_mem(n * n * sizeof(DATA_TYPE), MPI_INFO_NULL, &A);
         MPI_Alloc_mem(n * sizeof(DATA_TYPE), MPI_INFO_NULL, &u1);
         MPI_Alloc_mem(n * sizeof(DATA_TYPE), MPI_INFO_NULL, &u2);
@@ -125,32 +124,29 @@ void gemver(int argc, char** argv) {
 
         // Initialize array(s) only for process 0
         init_array(n, &alpha, &beta, POLYBENCH_ARRAY(A), POLYBENCH_ARRAY(u1), POLYBENCH_ARRAY(v1), POLYBENCH_ARRAY(u2),
-               POLYBENCH_ARRAY(v2), POLYBENCH_ARRAY(w), POLYBENCH_ARRAY(x), POLYBENCH_ARRAY(y), POLYBENCH_ARRAY(z));
+                   POLYBENCH_ARRAY(v2), POLYBENCH_ARRAY(w), POLYBENCH_ARRAY(x), POLYBENCH_ARRAY(y), POLYBENCH_ARRAY(z));
     }
 
     /*
     calculate  A = A + u1*v1 + u2*v2
     */
 
-   if (world_rank == 0){
-    polybench_start_instruments;
-   }
+    if (world_rank == 0) {
+        polybench_start_instruments;
+    }
 
-    //split into blocks to distribute over the processes
+    // split into blocks to distribute over the processes
     int block = n / world_size;
     int remaining = n % world_size;
 
-    int *block_start_indx = (int *)malloc(world_size * sizeof(int));  //where do we start (idx)
-    int *num_elements = (int *)malloc(world_size * sizeof(int)); 
-    for (int i = 0; i < world_size; i++)
-    {
-        if (i < world_size - 1)
-        {
+    int *block_start_indx = (int *)malloc(world_size * sizeof(int));  // where do we start (idx)
+    int *num_elements = (int *)malloc(world_size * sizeof(int));
+    for (int i = 0; i < world_size; i++) {
+        if (i < world_size - 1) {
             num_elements[i] = block;
-        }
-        else
-        {
-            num_elements[i] = block + remaining;//last process also gets the remaining elements that dont fit in the vlock split
+        } else {
+            num_elements[i] =
+                block + remaining;  // last process also gets the remaining elements that dont fit in the vlock split
         }
         block_start_indx[i] = i * block;
     }
@@ -160,96 +156,91 @@ void gemver(int argc, char** argv) {
     POLYBENCH_1D_ARRAY_DECL(process_u1, DATA_TYPE, process_size, process_size);
     POLYBENCH_1D_ARRAY_DECL(process_u2, DATA_TYPE, process_size, process_size);
 
-    MPI_Scatterv(u1, num_elements, block_start_indx, MPI_DOUBLE, process_u1, process_size, MPI_DOUBLE, 0, MPI_COMM_WORLD);
-    MPI_Scatterv(u2, num_elements, block_start_indx, MPI_DOUBLE, process_u2, process_size, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    MPI_Scatterv(u1, num_elements, block_start_indx, MPI_DOUBLE, process_u1, process_size, MPI_DOUBLE, 0,
+                 MPI_COMM_WORLD);
+    MPI_Scatterv(u2, num_elements, block_start_indx, MPI_DOUBLE, process_u2, process_size, MPI_DOUBLE, 0,
+                 MPI_COMM_WORLD);
 
-    //do the block split for A as well
+    // do the block split for A as well
     int *block_start_indx_matrix = (int *)malloc(world_size * sizeof(int));
     int *num_elements_matrix = (int *)malloc(world_size * sizeof(int));
-    for (int i = 0; i < world_size; i++)
-    {
-        if (i < world_size - 1)
-        {
+    for (int i = 0; i < world_size; i++) {
+        if (i < world_size - 1) {
             num_elements_matrix[i] = block * n;
-        }
-        else
-        {
-            num_elements_matrix[i] = (block + remaining) * n;//last process also gets the remaining elements that dont fit in the vlock split
+        } else {
+            num_elements_matrix[i] =
+                (block + remaining) *
+                n;  // last process also gets the remaining elements that dont fit in the vlock split
         }
         block_start_indx_matrix[i] = i * block * n;
     }
 
     POLYBENCH_2D_ARRAY_DECL(process_A, DATA_TYPE, process_size, N, process_size, n);
-    //double *process_A = (double *)malloc(process_size * n * sizeof(double));
-    MPI_Scatterv(A, num_elements_matrix, block_start_indx_matrix, MPI_DOUBLE, process_A, process_size * n, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    // double *process_A = (double *)malloc(process_size * n * sizeof(double));
+    MPI_Scatterv(A, num_elements_matrix, block_start_indx_matrix, MPI_DOUBLE, process_A, process_size * n, MPI_DOUBLE,
+                 0, MPI_COMM_WORLD);
     MPI_Bcast(v1, n, MPI_DOUBLE, 0, MPI_COMM_WORLD);
     MPI_Bcast(v2, n, MPI_DOUBLE, 0, MPI_COMM_WORLD);
 
-    //compute A
-    for (int i = 0; i < process_size; i++)
-    {
-        for (int j = 0; j < n; j++)
-        {
+    // compute A
+    for (int i = 0; i < process_size; i++) {
+        for (int j = 0; j < n; j++) {
             (*process_A)[i][j] += (*process_u1)[i] * (*v1)[j] + (*process_u2)[i] * (*v2)[j];
         }
     }
-    //send results to first process
-    MPI_Gatherv(process_A, process_size * n, MPI_DOUBLE, A, num_elements_matrix, block_start_indx_matrix, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    // send results to first process
+    MPI_Gatherv(process_A, process_size * n, MPI_DOUBLE, A, num_elements_matrix, block_start_indx_matrix, MPI_DOUBLE, 0,
+                MPI_COMM_WORLD);
 
     /*
     calculate  x = x + b * A^T * y + z
     */
 
-    MPI_Datatype columns, new_columns;//used to send tge blocks of the 2d array
+    MPI_Datatype columns, new_columns;  // used to send tge blocks of the 2d array
 
     MPI_Type_vector(n, 1, n, MPI_DOUBLE, &columns);
 
     MPI_Type_commit(&columns);
 
-    MPI_Type_create_resized(columns, 0, 1 * sizeof(DATA_TYPE), &new_columns); 
+    MPI_Type_create_resized(columns, 0, 1 * sizeof(DATA_TYPE), &new_columns);
     MPI_Type_commit(&new_columns);
 
-    int *block_start_indx_matrix_T = (int *)malloc(world_size * sizeof(int)); 
-    int *num_elements_matrix_T = (int *)malloc(world_size * sizeof(int)); 
+    int *block_start_indx_matrix_T = (int *)malloc(world_size * sizeof(int));
+    int *num_elements_matrix_T = (int *)malloc(world_size * sizeof(int));
     int block_start = 0;
-    for (int i = 0; i < world_size; i++)
-    {
-        if (i < world_size - 1)
-        {
+    for (int i = 0; i < world_size; i++) {
+        if (i < world_size - 1) {
             num_elements_matrix_T[i] = block;
-        }
-        else
-        {
+        } else {
             num_elements_matrix_T[i] = (block + remaining);
         }
         block_start_indx_matrix_T[i] = block_start;
         block_start += num_elements_matrix_T[i];
     }
 
-    //transpose A by sending columnsas rows
+    // transpose A by sending columnsas rows
     POLYBENCH_2D_ARRAY_DECL(process_A_T, DATA_TYPE, process_size, N, process_size, n);
-    MPI_Scatterv(A, num_elements_matrix_T, block_start_indx_matrix_T, new_columns, process_A_T, process_size * n, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    MPI_Scatterv(A, num_elements_matrix_T, block_start_indx_matrix_T, new_columns, process_A_T, process_size * n,
+                 MPI_DOUBLE, 0, MPI_COMM_WORLD);
 
     POLYBENCH_1D_ARRAY_DECL(process_z, DATA_TYPE, process_size, process_size);
     POLYBENCH_1D_ARRAY_DECL(process_x, DATA_TYPE, process_size, process_size);
     MPI_Scatterv(z, num_elements, block_start_indx, MPI_DOUBLE, process_z, process_size, MPI_DOUBLE, 0, MPI_COMM_WORLD);
     MPI_Scatterv(x, num_elements, block_start_indx, MPI_DOUBLE, process_x, process_size, MPI_DOUBLE, 0, MPI_COMM_WORLD);
 
-    //send y,b everywhere
+    // send y,b everywhere
     MPI_Bcast(y, n, MPI_DOUBLE, 0, MPI_COMM_WORLD);
     MPI_Bcast(&beta, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
 
-    //x = b * A^T * y + z
-    for (int i = 0; i < process_size; i++)
-    {
-        for (int j = 0; j < n; j++)
-        {
+    // x = b * A^T * y + z
+    for (int i = 0; i < process_size; i++) {
+        for (int j = 0; j < n; j++) {
             (*process_x)[i] = (*process_x)[i] + beta * (*process_A_T)[i][j] * (*y)[j];
         }
         (*process_x)[i] += (*process_z)[i];
     }
 
-    //send results to first process
+    // send results to first process
     MPI_Gatherv(process_x, process_size, MPI_DOUBLE, x, num_elements, block_start_indx, MPI_DOUBLE, 0, MPI_COMM_WORLD);
 
     /*
@@ -257,29 +248,27 @@ void gemver(int argc, char** argv) {
     */
 
     POLYBENCH_2D_ARRAY_DECL(process_A_res, DATA_TYPE, process_size, N, process_size, n);
-    MPI_Scatterv(A, num_elements_matrix, block_start_indx_matrix, MPI_DOUBLE, process_A_res, process_size * n, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    MPI_Scatterv(A, num_elements_matrix, block_start_indx_matrix, MPI_DOUBLE, process_A_res, process_size * n,
+                 MPI_DOUBLE, 0, MPI_COMM_WORLD);
 
-    //send x everywhere
+    // send x everywhere
     MPI_Bcast(x, n, MPI_DOUBLE, 0, MPI_COMM_WORLD);
     MPI_Bcast(&alpha, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
 
     POLYBENCH_1D_ARRAY_DECL(process_w, DATA_TYPE, process_size, process_size);
     MPI_Scatterv(w, num_elements, block_start_indx, MPI_DOUBLE, process_w, process_size, MPI_DOUBLE, 0, MPI_COMM_WORLD);
 
-    //w = a * A * x
-    for (int i = 0; i < process_size; i++)
-    {
-        for (int j = 0; j < n; j++)
-        {
+    // w = a * A * x
+    for (int i = 0; i < process_size; i++) {
+        for (int j = 0; j < n; j++) {
             (*process_w)[i] = (*process_w)[i] + alpha * (*process_A_res)[i][j] * (*x)[j];
         }
     }
-        
 
-    //send results to first process
+    // send results to first process
     MPI_Gatherv(process_w, process_size, MPI_DOUBLE, w, num_elements, block_start_indx, MPI_DOUBLE, 0, MPI_COMM_WORLD);
 
-    if (world_rank == 0){
+    if (world_rank == 0) {
         /* Stop and print timer. */
         polybench_stop_instruments;
         polybench_print_instruments;
@@ -289,7 +278,7 @@ void gemver(int argc, char** argv) {
         polybench_prevent_dce(print_array(n, POLYBENCH_ARRAY(w)));
     }
 
-    //cleanup
+    // cleanup
     MPI_Free_mem(num_elements);
     POLYBENCH_FREE_ARRAY(num_elements);
     MPI_Free_mem(num_elements_matrix);
@@ -314,7 +303,7 @@ void gemver(int argc, char** argv) {
     POLYBENCH_FREE_ARRAY(process_w);
     MPI_Free_mem(process_A_res);
     POLYBENCH_FREE_ARRAY(process_A_res);
-    MPI_Free_mem(v1); 
+    MPI_Free_mem(v1);
     POLYBENCH_FREE_ARRAY(v1);
     MPI_Free_mem(v2);
     POLYBENCH_FREE_ARRAY(v2);
@@ -323,8 +312,7 @@ void gemver(int argc, char** argv) {
     MPI_Free_mem(y);
     POLYBENCH_FREE_ARRAY(y);
 
-    if (world_rank==0)
-    {
+    if (world_rank == 0) {
         MPI_Free_mem(A);
         MPI_Free_mem(u1);
         MPI_Free_mem(u2);
@@ -340,13 +328,12 @@ void gemver(int argc, char** argv) {
 
     // Finalize the MPI environment.
     MPI_Finalize();
-
 }
 
-//central process distributes the work in blocks equally on all others and collects results
-//non blocking communication
-//non blocking allows computations and communication to overlap, which generally leads to improved performance
-void gemver_non_blocking(int argc, char** argv) {
+// central process distributes the work in blocks equally on all others and collects results
+// non blocking communication
+// non blocking allows computations and communication to overlap, which generally leads to improved performance
+void gemver_non_blocking(int argc, char **argv) {
     // Initialize the MPI environment
     MPI_Init(&argc, &argv);
 
@@ -356,7 +343,7 @@ void gemver_non_blocking(int argc, char** argv) {
     /* Variable declaration/allocation. */
     DATA_TYPE alpha;
     DATA_TYPE beta;
-    
+
     POLYBENCH_2D_ARRAY_DECL(A, DATA_TYPE, N, N, n, n);
     POLYBENCH_1D_ARRAY_DECL(u1, DATA_TYPE, N, n);
     POLYBENCH_1D_ARRAY_DECL(v1, DATA_TYPE, N, n);
@@ -375,17 +362,16 @@ void gemver_non_blocking(int argc, char** argv) {
     int world_rank;
     MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
 
-    //assign mpi memory for variables
+    // assign mpi memory for variables
 
-    //for all processes
+    // for all processes
     MPI_Alloc_mem(n * sizeof(DATA_TYPE), MPI_INFO_NULL, &v1);
     MPI_Alloc_mem(n * sizeof(DATA_TYPE), MPI_INFO_NULL, &v2);
     MPI_Alloc_mem(n * sizeof(DATA_TYPE), MPI_INFO_NULL, &y);
     MPI_Alloc_mem(n * sizeof(DATA_TYPE), MPI_INFO_NULL, &x);
 
-    //for first process only
-    if (world_rank == 0)
-    {
+    // for first process only
+    if (world_rank == 0) {
         MPI_Alloc_mem(n * n * sizeof(DATA_TYPE), MPI_INFO_NULL, &A);
         MPI_Alloc_mem(n * sizeof(DATA_TYPE), MPI_INFO_NULL, &u1);
         MPI_Alloc_mem(n * sizeof(DATA_TYPE), MPI_INFO_NULL, &u2);
@@ -394,32 +380,29 @@ void gemver_non_blocking(int argc, char** argv) {
 
         // Initialize array(s) only for process 0
         init_array(n, &alpha, &beta, POLYBENCH_ARRAY(A), POLYBENCH_ARRAY(u1), POLYBENCH_ARRAY(v1), POLYBENCH_ARRAY(u2),
-               POLYBENCH_ARRAY(v2), POLYBENCH_ARRAY(w), POLYBENCH_ARRAY(x), POLYBENCH_ARRAY(y), POLYBENCH_ARRAY(z));
+                   POLYBENCH_ARRAY(v2), POLYBENCH_ARRAY(w), POLYBENCH_ARRAY(x), POLYBENCH_ARRAY(y), POLYBENCH_ARRAY(z));
     }
 
     /*
     calculate  A = A + u1*v1 + u2*v2
     */
 
-   if (world_rank == 0){
-    polybench_start_instruments;
-   }
+    if (world_rank == 0) {
+        polybench_start_instruments;
+    }
 
-    //split into blocks to distribute over the processes
+    // split into blocks to distribute over the processes
     int block = n / world_size;
     int remaining = n % world_size;
 
-    int *block_start_indx = (int *)malloc(world_size * sizeof(int));  
-    int *num_elements = (int *)malloc(world_size * sizeof(int)); 
-    for (int i = 0; i < world_size; i++)
-    {
-        if (i < world_size - 1)
-        {
+    int *block_start_indx = (int *)malloc(world_size * sizeof(int));
+    int *num_elements = (int *)malloc(world_size * sizeof(int));
+    for (int i = 0; i < world_size; i++) {
+        if (i < world_size - 1) {
             num_elements[i] = block;
-        }
-        else
-        {
-            num_elements[i] = block + remaining;//last process also gets the remaining elements that dont fit in the vlock split
+        } else {
+            num_elements[i] =
+                block + remaining;  // last process also gets the remaining elements that dont fit in the vlock split
         }
         block_start_indx[i] = i * block;
     }
@@ -431,21 +414,21 @@ void gemver_non_blocking(int argc, char** argv) {
 
     MPI_Request send_u1, send_u2;
 
-    MPI_Iscatterv(u1, num_elements, block_start_indx, MPI_DOUBLE, process_u1, process_size, MPI_DOUBLE, 0, MPI_COMM_WORLD, &send_u1);
-    MPI_Iscatterv(u2, num_elements, block_start_indx, MPI_DOUBLE, process_u2, process_size, MPI_DOUBLE, 0, MPI_COMM_WORLD, &send_u2);
+    MPI_Iscatterv(u1, num_elements, block_start_indx, MPI_DOUBLE, process_u1, process_size, MPI_DOUBLE, 0,
+                  MPI_COMM_WORLD, &send_u1);
+    MPI_Iscatterv(u2, num_elements, block_start_indx, MPI_DOUBLE, process_u2, process_size, MPI_DOUBLE, 0,
+                  MPI_COMM_WORLD, &send_u2);
 
-    //do the block split for A as well
+    // do the block split for A as well
     int *block_start_indx_matrix = (int *)malloc(world_size * sizeof(int));
     int *num_elements_matrix = (int *)malloc(world_size * sizeof(int));
-    for (int i = 0; i < world_size; i++)
-    {
-        if (i < world_size - 1)
-        {
+    for (int i = 0; i < world_size; i++) {
+        if (i < world_size - 1) {
             num_elements_matrix[i] = block * n;
-        }
-        else
-        {
-            num_elements_matrix[i] = (block + remaining) * n;//last process also gets the remaining elements that dont fit in the vlock split
+        } else {
+            num_elements_matrix[i] =
+                (block + remaining) *
+                n;  // last process also gets the remaining elements that dont fit in the vlock split
         }
         block_start_indx_matrix[i] = i * block * n;
     }
@@ -454,7 +437,8 @@ void gemver_non_blocking(int argc, char** argv) {
     MPI_Request send_A;
     MPI_Request rec_A;
 
-    MPI_Iscatterv(A, num_elements_matrix, block_start_indx_matrix, MPI_DOUBLE, process_A, process_size * n, MPI_DOUBLE, 0, MPI_COMM_WORLD, &send_A);
+    MPI_Iscatterv(A, num_elements_matrix, block_start_indx_matrix, MPI_DOUBLE, process_A, process_size * n, MPI_DOUBLE,
+                  0, MPI_COMM_WORLD, &send_A);
 
     MPI_Bcast(v1, n, MPI_DOUBLE, 0, MPI_COMM_WORLD);
     MPI_Bcast(v2, n, MPI_DOUBLE, 0, MPI_COMM_WORLD);
@@ -463,41 +447,36 @@ void gemver_non_blocking(int argc, char** argv) {
     MPI_Wait(&send_u2, MPI_STATUS_IGNORE);
     MPI_Wait(&send_A, MPI_STATUS_IGNORE);
 
-    //compute A
-    for (int i = 0; i < process_size; i++)
-    {
-        for (int j = 0; j < n; j++)
-        {
+    // compute A
+    for (int i = 0; i < process_size; i++) {
+        for (int j = 0; j < n; j++) {
             (*process_A)[i][j] += (*process_u1)[i] * (*v1)[j] + (*process_u2)[i] * (*v2)[j];
         }
     }
-    //send results to first process
-    MPI_Igatherv(process_A, process_size * n, MPI_DOUBLE, A, num_elements_matrix, block_start_indx_matrix, MPI_DOUBLE, 0, MPI_COMM_WORLD, &rec_A);
+    // send results to first process
+    MPI_Igatherv(process_A, process_size * n, MPI_DOUBLE, A, num_elements_matrix, block_start_indx_matrix, MPI_DOUBLE,
+                 0, MPI_COMM_WORLD, &rec_A);
 
     /*
     calculate  x = x + b * A^T * y + z
     */
 
-    MPI_Datatype columns, new_columns;//used to send tge blocks of the 2d array
+    MPI_Datatype columns, new_columns;  // used to send tge blocks of the 2d array
 
     MPI_Type_vector(n, 1, n, MPI_DOUBLE, &columns);
 
     MPI_Type_commit(&columns);
 
-    MPI_Type_create_resized(columns, 0, 1 * sizeof(DATA_TYPE), &new_columns); 
+    MPI_Type_create_resized(columns, 0, 1 * sizeof(DATA_TYPE), &new_columns);
     MPI_Type_commit(&new_columns);
 
-    int *block_start_indx_matrix_T = (int *)malloc(world_size * sizeof(int)); 
-    int *num_elements_matrix_T = (int *)malloc(world_size * sizeof(int)); 
+    int *block_start_indx_matrix_T = (int *)malloc(world_size * sizeof(int));
+    int *num_elements_matrix_T = (int *)malloc(world_size * sizeof(int));
     int block_start = 0;
-    for (int i = 0; i < world_size; i++)
-    {
-        if (i < world_size - 1)
-        {
+    for (int i = 0; i < world_size; i++) {
+        if (i < world_size - 1) {
             num_elements_matrix_T[i] = block;
-        }
-        else
-        {
+        } else {
             num_elements_matrix_T[i] = (block + remaining);
         }
         block_start_indx_matrix_T[i] = block_start;
@@ -506,16 +485,19 @@ void gemver_non_blocking(int argc, char** argv) {
 
     MPI_Request send_A_T, send_z, send_x;
     MPI_Wait(&rec_A, MPI_STATUS_IGNORE);
-    //transpose A by sending columnsas rows
+    // transpose A by sending columnsas rows
     POLYBENCH_2D_ARRAY_DECL(process_A_T, DATA_TYPE, process_size, N, process_size, n);
-    MPI_Iscatterv(A, num_elements_matrix_T, block_start_indx_matrix_T, new_columns, process_A_T, process_size * n, MPI_DOUBLE, 0, MPI_COMM_WORLD, &send_A_T);
+    MPI_Iscatterv(A, num_elements_matrix_T, block_start_indx_matrix_T, new_columns, process_A_T, process_size * n,
+                  MPI_DOUBLE, 0, MPI_COMM_WORLD, &send_A_T);
 
     POLYBENCH_1D_ARRAY_DECL(process_z, DATA_TYPE, process_size, process_size);
     POLYBENCH_1D_ARRAY_DECL(process_x, DATA_TYPE, process_size, process_size);
-    MPI_Iscatterv(z, num_elements, block_start_indx, MPI_DOUBLE, process_z, process_size, MPI_DOUBLE, 0, MPI_COMM_WORLD, &send_z);
-    MPI_Iscatterv(x, num_elements, block_start_indx, MPI_DOUBLE, process_x, process_size, MPI_DOUBLE, 0, MPI_COMM_WORLD, &send_x);
+    MPI_Iscatterv(z, num_elements, block_start_indx, MPI_DOUBLE, process_z, process_size, MPI_DOUBLE, 0, MPI_COMM_WORLD,
+                  &send_z);
+    MPI_Iscatterv(x, num_elements, block_start_indx, MPI_DOUBLE, process_x, process_size, MPI_DOUBLE, 0, MPI_COMM_WORLD,
+                  &send_x);
 
-    //send y,b everywhere
+    // send y,b everywhere
     MPI_Bcast(y, n, MPI_DOUBLE, 0, MPI_COMM_WORLD);
     MPI_Bcast(&beta, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
 
@@ -523,18 +505,17 @@ void gemver_non_blocking(int argc, char** argv) {
     MPI_Wait(&send_z, MPI_STATUS_IGNORE);
     MPI_Wait(&send_x, MPI_STATUS_IGNORE);
 
-    //x = b * A^T * y + z
-    for (int i = 0; i < process_size; i++)
-    {
-        for (int j = 0; j < n; j++)
-        {
+    // x = b * A^T * y + z
+    for (int i = 0; i < process_size; i++) {
+        for (int j = 0; j < n; j++) {
             (*process_x)[i] = (*process_x)[i] + beta * (*process_A_T)[i][j] * (*y)[j];
         }
         (*process_x)[i] += (*process_z)[i];
     }
     MPI_Request rec_x;
-    //send results to first process
-    MPI_Igatherv(process_x, process_size, MPI_DOUBLE, x, num_elements, block_start_indx, MPI_DOUBLE, 0, MPI_COMM_WORLD, &rec_x);
+    // send results to first process
+    MPI_Igatherv(process_x, process_size, MPI_DOUBLE, x, num_elements, block_start_indx, MPI_DOUBLE, 0, MPI_COMM_WORLD,
+                 &rec_x);
 
     /*
     calculate  w = a * A * x
@@ -542,35 +523,36 @@ void gemver_non_blocking(int argc, char** argv) {
     MPI_Request send_A_res, send_x_res, send_w;
 
     POLYBENCH_2D_ARRAY_DECL(process_A_res, DATA_TYPE, process_size, N, process_size, n);
-    MPI_Iscatterv(A, num_elements_matrix, block_start_indx_matrix, MPI_DOUBLE, process_A_res, process_size * n, MPI_DOUBLE, 0, MPI_COMM_WORLD, &send_A_res);
+    MPI_Iscatterv(A, num_elements_matrix, block_start_indx_matrix, MPI_DOUBLE, process_A_res, process_size * n,
+                  MPI_DOUBLE, 0, MPI_COMM_WORLD, &send_A_res);
 
-    //send x everywhere
+    // send x everywhere
     MPI_Wait(&rec_x, MPI_STATUS_IGNORE);
     MPI_Ibcast(x, n, MPI_DOUBLE, 0, MPI_COMM_WORLD, &send_x_res);
     MPI_Bcast(&alpha, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
 
     POLYBENCH_1D_ARRAY_DECL(process_w, DATA_TYPE, process_size, process_size);
-    MPI_Iscatterv(w, num_elements, block_start_indx, MPI_DOUBLE, process_w, process_size, MPI_DOUBLE, 0, MPI_COMM_WORLD, &send_w);
+    MPI_Iscatterv(w, num_elements, block_start_indx, MPI_DOUBLE, process_w, process_size, MPI_DOUBLE, 0, MPI_COMM_WORLD,
+                  &send_w);
 
     MPI_Wait(&send_A_res, MPI_STATUS_IGNORE);
     MPI_Wait(&send_x_res, MPI_STATUS_IGNORE);
     MPI_Wait(&send_w, MPI_STATUS_IGNORE);
 
-    //w = a * A * x
-    for (int i = 0; i < process_size; i++)
-    {
-        for (int j = 0; j < n; j++)
-        {
+    // w = a * A * x
+    for (int i = 0; i < process_size; i++) {
+        for (int j = 0; j < n; j++) {
             (*process_w)[i] = (*process_w)[i] + alpha * (*process_A_res)[i][j] * (*x)[j];
         }
     }
-        
+
     MPI_Request rec_w_res;
-    //send results to first process
-    MPI_Igatherv(process_w, process_size, MPI_DOUBLE, w, num_elements, block_start_indx, MPI_DOUBLE, 0, MPI_COMM_WORLD, &rec_w_res);
+    // send results to first process
+    MPI_Igatherv(process_w, process_size, MPI_DOUBLE, w, num_elements, block_start_indx, MPI_DOUBLE, 0, MPI_COMM_WORLD,
+                 &rec_w_res);
     MPI_Wait(&rec_w_res, MPI_STATUS_IGNORE);
 
-    if (world_rank == 0){
+    if (world_rank == 0) {
         /* Stop and print timer. */
         polybench_stop_instruments;
         polybench_print_instruments;
@@ -580,7 +562,7 @@ void gemver_non_blocking(int argc, char** argv) {
         polybench_prevent_dce(print_array(n, POLYBENCH_ARRAY(w)));
     }
 
-    //cleanup
+    // cleanup
     MPI_Free_mem(num_elements);
     POLYBENCH_FREE_ARRAY(num_elements);
     MPI_Free_mem(num_elements_matrix);
@@ -605,7 +587,7 @@ void gemver_non_blocking(int argc, char** argv) {
     POLYBENCH_FREE_ARRAY(process_w);
     MPI_Free_mem(process_A_res);
     POLYBENCH_FREE_ARRAY(process_A_res);
-    MPI_Free_mem(v1); 
+    MPI_Free_mem(v1);
     POLYBENCH_FREE_ARRAY(v1);
     MPI_Free_mem(v2);
     POLYBENCH_FREE_ARRAY(v2);
@@ -614,8 +596,7 @@ void gemver_non_blocking(int argc, char** argv) {
     MPI_Free_mem(y);
     POLYBENCH_FREE_ARRAY(y);
 
-    if (world_rank==0)
-    {
+    if (world_rank == 0) {
         MPI_Free_mem(A);
         MPI_Free_mem(u1);
         MPI_Free_mem(u2);
@@ -631,14 +612,12 @@ void gemver_non_blocking(int argc, char** argv) {
 
     // Finalize the MPI environment.
     MPI_Finalize();
-
 }
 
-
-//central process distributes the work in blocks equally on all others and collects results
-//this time we split into columns not rows
-//so we have to do less scatters
-void gemver_column_split(int argc, char** argv) {
+// central process distributes the work in blocks equally on all others and collects results
+// this time we split into columns not rows
+// so we have to do less scatters
+void gemver_column_split(int argc, char **argv) {
     // Initialize the MPI environment
     MPI_Init(&argc, &argv);
 
@@ -648,7 +627,7 @@ void gemver_column_split(int argc, char** argv) {
     /* Variable declaration/allocation. */
     DATA_TYPE alpha;
     DATA_TYPE beta;
-    
+
     POLYBENCH_2D_ARRAY_DECL(A, DATA_TYPE, N, N, n, n);
     POLYBENCH_1D_ARRAY_DECL(u1, DATA_TYPE, N, n);
     POLYBENCH_1D_ARRAY_DECL(v1, DATA_TYPE, N, n);
@@ -667,9 +646,9 @@ void gemver_column_split(int argc, char** argv) {
     int world_rank;
     MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
 
-    //assign mpi memory for variables
+    // assign mpi memory for variables
 
-    //for all processes
+    // for all processes
 
     MPI_Alloc_mem(n * sizeof(DATA_TYPE), MPI_INFO_NULL, &y);
     MPI_Alloc_mem(n * sizeof(DATA_TYPE), MPI_INFO_NULL, &x);
@@ -678,65 +657,57 @@ void gemver_column_split(int argc, char** argv) {
     MPI_Alloc_mem(n * sizeof(DATA_TYPE), MPI_INFO_NULL, &u2);
     MPI_Alloc_mem(n * sizeof(DATA_TYPE), MPI_INFO_NULL, &w);
 
-    //init arrays everywhere
+    // init arrays everywhere
     init_array_partial(n, &alpha, &beta, POLYBENCH_ARRAY(A), POLYBENCH_ARRAY(u1), POLYBENCH_ARRAY(u2),
-             POLYBENCH_ARRAY(w), POLYBENCH_ARRAY(x), POLYBENCH_ARRAY(y));
+                       POLYBENCH_ARRAY(w), POLYBENCH_ARRAY(x), POLYBENCH_ARRAY(y));
 
-
-    //split into blocks to distribute over the processes
+    // split into blocks to distribute over the processes
     int block = n / world_size;
     int remaining = n % world_size;
 
-    int *block_start_indx = (int *)malloc(world_size * sizeof(int));  
-    int *num_elements = (int *)malloc(world_size * sizeof(int)); 
-    for (int i = 0; i < world_size; i++)
-    {
-        if (i < world_size - 1)
-        {
+    int *block_start_indx = (int *)malloc(world_size * sizeof(int));
+    int *num_elements = (int *)malloc(world_size * sizeof(int));
+    for (int i = 0; i < world_size; i++) {
+        if (i < world_size - 1) {
             num_elements[i] = block;
-        }
-        else
-        {
-            num_elements[i] = block + remaining;//last process also gets the remaining elements that dont fit in the vlock split
+        } else {
+            num_elements[i] =
+                block + remaining;  // last process also gets the remaining elements that dont fit in the vlock split
         }
         block_start_indx[i] = i * block;
     }
 
     int process_size = num_elements[world_rank];
 
-    MPI_Datatype columns, new_columns;//used to send tge blocks of the 2d array
+    MPI_Datatype columns, new_columns;  // used to send tge blocks of the 2d array
     MPI_Type_vector(n, 1, n, MPI_DOUBLE, &columns);
 
     MPI_Type_commit(&columns);
-    MPI_Type_create_resized(columns, 0, 1 * sizeof(DATA_TYPE), &new_columns); 
+    MPI_Type_create_resized(columns, 0, 1 * sizeof(DATA_TYPE), &new_columns);
     MPI_Type_commit(&new_columns);
 
     MPI_Datatype columns_to_get, new_columns_to_get;
     MPI_Type_vector(n, 1, n, MPI_DOUBLE, &columns_to_get);
 
     MPI_Type_commit(&columns_to_get);
-    MPI_Type_create_resized(columns_to_get, 0, 1 * sizeof(DATA_TYPE), &new_columns_to_get); 
+    MPI_Type_create_resized(columns_to_get, 0, 1 * sizeof(DATA_TYPE), &new_columns_to_get);
     MPI_Type_commit(&new_columns_to_get);
 
-    int *block_start_indx_matrix = (int *)malloc(world_size * sizeof(int)); 
-    int *num_elements_matrix = (int *)malloc(world_size * sizeof(int)); 
+    int *block_start_indx_matrix = (int *)malloc(world_size * sizeof(int));
+    int *num_elements_matrix = (int *)malloc(world_size * sizeof(int));
     int block_start = 0;
-    for (int i = 0; i < world_size; i++)
-    {
-        if (i < world_size - 1)
-        {
+    for (int i = 0; i < world_size; i++) {
+        if (i < world_size - 1) {
             num_elements_matrix[i] = block;
-        }
-        else
-        {
+        } else {
             num_elements_matrix[i] = (block + remaining);
         }
         block_start_indx_matrix[i] = block_start;
         block_start += num_elements_matrix[i];
     }
 
-    //init rest of data 
-    //in processes so for local dta we dont need all the size for the arrays/matrices
+    // init rest of data
+    // in processes so for local dta we dont need all the size for the arrays/matrices
     POLYBENCH_2D_ARRAY_DECL(process_A_T, DATA_TYPE, process_size, N, process_size, n);
     POLYBENCH_2D_ARRAY_DECL(process_A, DATA_TYPE, process_size, N, process_size, n);
     POLYBENCH_1D_ARRAY_DECL(process_z, DATA_TYPE, process_size, process_size);
@@ -746,75 +717,68 @@ void gemver_column_split(int argc, char** argv) {
     POLYBENCH_1D_ARRAY_DECL(process_v2, DATA_TYPE, process_size, process_size);
 
     DATA_TYPE fn = (DATA_TYPE)n;
-    for (int i = 0; i < n; i++)
-    {
+    for (int i = 0; i < n; i++) {
         (*process_w)[i] = 0.0;
-        for (int j = 0; j < process_size; j++){
-            
+        for (int j = 0; j < process_size; j++) {
             (*process_A)[i][j] = (DATA_TYPE)(i * (j + block_start_indx[world_rank]) % n) / n;
         }
     }
-    for (int i = 0; i < process_size; i++)
-    {
+    for (int i = 0; i < process_size; i++) {
         int i_value = i + block_start_indx[world_rank];
         (*process_z)[i] = ((i_value + 1) / fn) / 9.0;
         (*process_v1)[i] = ((i_value + 1) / fn) / 4.0;
         (*process_v2)[i] = ((i_value + 1) / fn) / 6.0;
         (*process_x)[i] = 0.0;
     }
-    //TODO: START TIME EARLIER HERE??
-    if (world_rank == 0){
-    polybench_start_instruments;
-   }
+    // TODO: START TIME EARLIER HERE??
+    if (world_rank == 0) {
+        polybench_start_instruments;
+    }
 
     /*
     calculate  A = A + u1*v1 + u2*v2
     */
-   for (int i = 0; i < n; i++)
-    {
-        for (int j = 0; j < process_size; j++)
-        {
+    for (int i = 0; i < n; i++) {
+        for (int j = 0; j < process_size; j++) {
             (*process_A)[i][j] = (*process_A)[i][j] + (*u1)[i] * (*process_v1)[j] + (*u2)[i] * (*process_v2)[j];
         }
     }
-    
-    MPI_Gatherv(process_A, process_size , new_columns, A, num_elements_matrix, block_start_indx_matrix, new_columns_to_get , 0, MPI_COMM_WORLD);
-    
+
+    MPI_Gatherv(process_A, process_size, new_columns, A, num_elements_matrix, block_start_indx_matrix,
+                new_columns_to_get, 0, MPI_COMM_WORLD);
+
     /*
     calculate  x = x + b * A^T * y + z
     */
 
-    for (int i = 0; i < n; i++)//change indixes to transpose A
+    for (int i = 0; i < n; i++)  // change indixes to transpose A
     {
-        for (int j = 0; j < process_size; j++)
-        {
+        for (int j = 0; j < process_size; j++) {
             (*process_x)[j] = (*process_x)[j] + beta * (*process_A_T)[i][j] * (*y)[i];
         }
     }
 
-    for (int j = 0; j < process_size; j++)//careful need to add z outside of i loop!
+    for (int j = 0; j < process_size; j++)  // careful need to add z outside of i loop!
     {
         (*process_x)[j] += (*process_z)[j];
     }
 
-    //send results to first process
+    // send results to first process
     MPI_Gatherv(process_x, process_size, MPI_DOUBLE, x, num_elements, block_start_indx, MPI_DOUBLE, 0, MPI_COMM_WORLD);
 
     /*
     calculate  w = a * A * x
     */
 
-    for (int i = 0; i < n; i++)
-    {
-        for (int j = 0; j < process_size; j++)
-        {
+    for (int i = 0; i < n; i++) {
+        for (int j = 0; j < process_size; j++) {
             (*process_w)[i] = (*process_w)[i] + alpha * (*process_A)[i][j] * (*x)[j];
         }
     }
-    //combine all process w to the main w in process 0
+    // combine all process w to the main w in process 0
     MPI_Reduce(process_w, w, n, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
 
-    if (world_rank == 0){
+    if (world_rank == 0) {
         /* Stop and print timer. */
         polybench_stop_instruments;
         polybench_print_instruments;
@@ -824,7 +788,7 @@ void gemver_column_split(int argc, char** argv) {
         polybench_prevent_dce(print_array(n, POLYBENCH_ARRAY(w)));
     }
 
-    //cleanup
+    // cleanup
     MPI_Free_mem(num_elements);
     POLYBENCH_FREE_ARRAY(num_elements);
     MPI_Free_mem(num_elements_matrix);
@@ -843,7 +807,7 @@ void gemver_column_split(int argc, char** argv) {
     POLYBENCH_FREE_ARRAY(process_x);
     MPI_Free_mem(process_w);
     POLYBENCH_FREE_ARRAY(process_w);
-    MPI_Free_mem(v1); 
+    MPI_Free_mem(v1);
     POLYBENCH_FREE_ARRAY(v1);
     MPI_Free_mem(v2);
     POLYBENCH_FREE_ARRAY(v2);
@@ -852,8 +816,7 @@ void gemver_column_split(int argc, char** argv) {
     MPI_Free_mem(y);
     POLYBENCH_FREE_ARRAY(y);
 
-    if (world_rank==0)
-    {
+    if (world_rank == 0) {
         MPI_Free_mem(A);
         MPI_Free_mem(u1);
         MPI_Free_mem(u2);
@@ -869,14 +832,11 @@ void gemver_column_split(int argc, char** argv) {
 
     // Finalize the MPI environment.
     MPI_Finalize();
-
 }
 
-
-int main(int argc, char** argv){
-
-    gemver(argc,argv);
-    gemver_non_blocking(argc,argv);
+int main(int argc, char **argv) {
+    gemver(argc, argv);
+    gemver_non_blocking(argc, argv);
 
     return 0;
 }
