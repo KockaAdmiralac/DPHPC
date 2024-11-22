@@ -5,8 +5,9 @@
 #define P p[0]
 
 /* Include benchmark-specific header. */
-#include "adi.h"
 #include <mpi.h>
+
+#include "adi.h"
 
 #define MAX_PROCESSES 16
 
@@ -36,18 +37,19 @@ void initialise_benchmark(int argc, char** argv, int tsteps, int n, DATA_TYPE PO
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &world_size);
     // All processes should know each other's bounds
-    for (i = 0; i < world_size-1; i++) {
+    for (i = 0; i < world_size - 1; i++) {
         bounds_per_process[i][0] = i * _PB_N / world_size;
         bounds_per_process[i][1] = (i + 1) * _PB_N / world_size;
         elems_per_process[i] = (bounds_per_process[i][1] - bounds_per_process[i][0]) * _PB_N;
         displs[i] = cnt;
         cnt += elems_per_process[i];
     }
-    bounds_per_process[world_size-1][0] = (world_size-1) * _PB_N / world_size;
-    bounds_per_process[world_size-1][1] = _PB_N - 1;
+    bounds_per_process[world_size - 1][0] = (world_size - 1) * _PB_N / world_size;
+    bounds_per_process[world_size - 1][1] = _PB_N - 1;
     bounds_per_process[0][0] = 1;
-    elems_per_process[world_size-1] = (bounds_per_process[world_size-1][1] - bounds_per_process[world_size-1][0] + 1) * _PB_N;
-    displs[world_size-1] = cnt;
+    elems_per_process[world_size - 1] =
+        (bounds_per_process[world_size - 1][1] - bounds_per_process[world_size - 1][0] + 1) * _PB_N;
+    displs[world_size - 1] = cnt;
 
     start_i = bounds_per_process[rank][0];
     end_i = bounds_per_process[rank][1];
@@ -56,7 +58,7 @@ void initialise_benchmark(int argc, char** argv, int tsteps, int n, DATA_TYPE PO
         v[i][0] = SCALAR_VAL(1.0);
         v[i][_PB_N - 1] = SCALAR_VAL(1.0);
         for (j = 0; j < n; j++) {
-            u[i][j] = (DATA_TYPE) (i + n - j) / n;
+            u[i][j] = (DATA_TYPE)(i + n - j) / n;
         }
     }
 }
@@ -73,7 +75,7 @@ void finish_benchmark(int tsteps, int n, DATA_TYPE POLYBENCH_2D(u, N2, N2, n, n)
     POLYBENCH_FREE_ARRAY(all_u);
     POLYBENCH_FREE_ARRAY(all_v);
     MPI_Finalize();
-    if (rank != 0){
+    if (rank != 0) {
         POLYBENCH_FREE_ARRAY(u);
         POLYBENCH_FREE_ARRAY(v);
         POLYBENCH_FREE_ARRAY(p);

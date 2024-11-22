@@ -65,8 +65,8 @@ void kernel_adi(int tsteps, int n, DATA_TYPE POLYBENCH_2D(u, N2, N2, n, n), DATA
     f = d;
 
     for (t = 1; t <= _PB_TSTEPS; t++) {
-        // Column Sweep
-        #pragma omp parallel for private(j)
+// Column Sweep
+#pragma omp parallel for private(j)
         for (i = 1; i < _PB_N - 1; i++) {
             v[0][i] = SCALAR_VAL(1.0);
             p[i][0] = SCALAR_VAL(0.0);
@@ -83,8 +83,8 @@ void kernel_adi(int tsteps, int n, DATA_TYPE POLYBENCH_2D(u, N2, N2, n, n), DATA
                 v[j][i] = p[i][j] * v[j + 1][i] + q[i][j];
             }
         }
-        // Row Sweep
-        #pragma omp parallel for private(j)
+// Row Sweep
+#pragma omp parallel for private(j)
         for (i = 1; i < _PB_N - 1; i++) {
             u[i][0] = SCALAR_VAL(1.0);
             p[i][0] = SCALAR_VAL(0.0);

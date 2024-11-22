@@ -111,7 +111,8 @@ void kernel_adi(int tsteps, int n, DATA_TYPE POLYBENCH_2D(u, N2, N2, n, n), DATA
                 denom = d * p_im1 + e;
                 denom_inv = SCALAR_VAL(1.0) / denom;
                 p[0][j] = -f * denom_inv;
-                q[0][j] = (const_neg_a * v[i - 1][j] + const_1_2a * v[i][j] + const_neg_c * v[i + 1][j] - d * q_im1) * denom_inv;
+                q[0][j] = (const_neg_a * v[i - 1][j] + const_1_2a * v[i][j] + const_neg_c * v[i + 1][j] - d * q_im1) *
+                          denom_inv;
             }
 
             u[i][_PB_N - 1] = SCALAR_VAL(1.0);
