@@ -520,7 +520,7 @@ def format_and_provide_outpath(
 
 
 def main_run(args: Namespace) -> None:
-    variants = set(args.variants)
+    variants = sorted(set(args.variants))
 
     defines = dict([x.split("=")[:2] for x in args.set_defines.split(",")])
 
@@ -568,6 +568,11 @@ def main_run(args: Namespace) -> None:
         for variant in variants
     ]
 
+    combinations = [
+        (threads, binary)
+        for threads, binary in itertools.product(args.threads, binaries)
+        if not (binary.scheme in ("serial", "cuda") and threads > 1)
+    ]
     results = [
         run(
             binary,
@@ -583,8 +588,7 @@ def main_run(args: Namespace) -> None:
             disable_checking=args.disable_checking,
             human_readable_output=args.human_readable_output,
         )
-        for thread_num in args.threads
-        for binary in binaries
+        for thread_num, binary in combinations
     ]
 
     print(
