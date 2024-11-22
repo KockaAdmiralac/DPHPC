@@ -556,6 +556,36 @@ def main_run(args: Namespace) -> None:
             with open(truth_fp, "rb") as truth_f:
                 ground_truth_data = datacheck.parse_dump_to_arrays(truth_f.read())
 
+    if args.detailed_table:
+        header = [
+            "Variant",
+            "Scheme",
+            "Threads",
+            "Mean time",
+            "Min time",
+            "Max time",
+            "Median time",
+            "Stdev time",
+            "Cached result",
+            "Mean dev",
+            "Min dev",
+            "Max dev",
+            "Median dev",
+            "Stdev dev",
+        ]
+    else:
+        header = [
+            "Variant",
+            "Scheme",
+            "Threads",
+            "Mean",
+            "Min",
+            "Max",
+            "Median",
+            "Stdev",
+            "Cached result",
+        ]
+
     binaries = [
         compile(
             args.benchmark,
@@ -603,31 +633,16 @@ def main_run(args: Namespace) -> None:
                     result.max,
                     result.median,
                     result.std,
+                    result.used_cached_results,
                     result.mean_deviation,
                     result.min_deviation,
                     result.max_deviation,
                     result.median_deviation,
                     result.std_deviation,
-                    result.used_cached_results,
-                )
+                )[: len(header)]
                 for result in results
             ],
-            headers=[
-                "Variant",
-                "Parallelisation Scheme",
-                "Threads",
-                "Mean time",
-                "Min time",
-                "Max time",
-                "Median time",
-                "Stdev time",
-                "Mean dev",
-                "Min dev",
-                "Max dev",
-                "Median dev",
-                "Stdev dev",
-                "Used cached results",
-            ],
+            headers=header,
         )
     )
 
@@ -714,6 +729,12 @@ if __name__ == "__main__":
         "--human_readable_output",
         action="store_true",
         help="Dump data output in human-readable format",
+    )
+
+    parser.add_argument(
+        "--detailed_table",
+        action="store_true",
+        help="Show detailed data deviation info in the result table",
     )
 
     args = parser.parse_args()
