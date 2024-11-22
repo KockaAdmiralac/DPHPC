@@ -9,6 +9,7 @@
  */
 /* polybench.c: this file is part of PolyBench/C */
 
+#define _POSIX_C_SOURCE 200809L
 #include <assert.h>
 #include <math.h>
 #include <sched.h>
