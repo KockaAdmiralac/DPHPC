@@ -1,0 +1,62 @@
+1. webserver for access to results
+2. individual testing containers
+3. distinguish display name from variant names, use former for graphs/table prints to avoid "improved7"
+4. automatic plot generation, a few variants of plots ideally
+5. parallel compilation
+6. psutil monitoring for diagnostics, especially external processes use of CPU/RAM
+7. queue of jobs for single benchmark runs to schedule them more flexibly than for loop, also a "run until stopped" benchmark mode helpful for final results or letting it run overnight.
+8. make microbenchmarks for individual gemver kernels, variant of luka's MR
+9. CUDA for multi-wave larger size: CUDA streams and copying in parallel to compute (for now gemver only)
+10. support subvariants with different options for preprocessor definitions, allowing sweeps for block sizes
+11. Convert polybench to dump both timing info and data to stdout so stderr can be used for debug and dumped to a file for instance, requires minor changes to binary and text formats but provides a good chance to integrate luka's idea of outputting multiple times.
+
+run single benchmark lowlevel:
+    if there's a must-complete task waiting:
+        pop a random task among must-complete tasks
+    else:
+        select a random task among benchmark choices
+    dispatch task
+    parse result
+
+run single benchmark:
+    run single benchmark lowlevel
+    check result
+    if good result:
+        save timing info to file
+    elif should abort benchmark:
+        break
+
+prepare compilation (passed similar parameters to existing test.py's arguments):
+    make benchmark choices list
+    make compilations list
+    iterate over requested benchmarks (adi, gemver):
+        iterate over requested variants in each:
+            iterate over N/tsteps ranges provided (respecting dphpc_md.json constraints):
+                iterate over subvariants (parameters to be taken from dphpc_md.json, only when enabled by argument):
+                    add instances to benchmark choices list, multiple because we want multiple different run-time configurations using the same binary for openmp/mpi
+                    variation on test.py's compile function stores parameters for compilation in compilations list, including binary path and dependencies'
+
+compilation:
+    if all dependencies from requested compilation have mod time < binary's time:
+        return existing binary
+    call subprocess to perform compilation
+
+all preparation function:
+    if custom benchmark choices configuration & compilations list config file provided:
+        read benchmark choices and compilations list from JSON file
+    else:
+        prepare compilation
+        save benchmark choices and compilations list to JSON file to let user edit it for next time
+    compile all in parallel off compilations list
+    generate must-complete tasks for running all binaries (non-empty only if empty --runs provided, this merely replicates the benchmark choices list runs times)
+
+main function:
+    read arguments and put these in a class to avoid moving around individual arguments
+    all preparation
+    iterate forever:
+        run single benchmark
+        if ctrl+C anywhere in loop break but still do stuff after loop
+        if predetermined limit was used and no must-complete tasks left, break
+    read results from prior runs of program if asked by user
+    generate processed outputs (graphs, statistics)
+    print results
