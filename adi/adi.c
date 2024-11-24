@@ -44,46 +44,79 @@ static void print_array(int n, DATA_TYPE POLYBENCH_2D(u, N2, N2, n, n), const ch
 }
 #endif
 
+void default_initialise_benchmark(int argc, char** argv, int tsteps, int n, default_adi_data_t* data_ptr) {
+    data_ptr->tsteps = tsteps;
+    data_ptr->n = n;
+    data_ptr->argc = argc;
+    data_ptr->argv = argv;
+
+    int i, j;
+
+    for (i = 0; i < n; i++)
+        for (j = 0; j < n; j++) {
+            data_ptr->u[i][j] = (DATA_TYPE)(i + n - j) / n;
+        }
+}
+
+void default_initialise_benchmark_and_alloc(int argc, char** argv, int tsteps, int n, default_adi_data_t** data_ptr) {
+    *data_ptr = polybench_alloc_data(1, sizeof(default_adi_data_t));
+    default_initialise_benchmark(argc, argv, tsteps, n, *data_ptr);
+}
+
+void default_print_data(int argc, char** argv, int n, default_adi_data_t* data_ptr) {
+    (void)argc;
+    (void)argv;
+    polybench_prevent_dce(print_array(n, data_ptr->u, "u"));
+    polybench_prevent_dce(print_array(n, data_ptr->v, "v"));
+    polybench_prevent_dce(print_array(n, data_ptr->p, "p"));
+    polybench_prevent_dce(print_array(n, data_ptr->q, "q"));
+}
+
+#ifdef __GNUC__
+
+__attribute__((weak)) void initialise_benchmark(int argc, char** argv, int tsteps, int n, void** gen_data_ptr) {
+    default_initialise_benchmark_and_alloc(argc, argv, tsteps, n, (default_adi_data_t**)gen_data_ptr);
+}
+
+__attribute__((weak)) void finish_benchmark(void* data_ptr) { (void)data_ptr; }
+
+__attribute__((weak)) void print_data(int argc, char** argv, int n, void* gen_data_ptr) {
+    default_print_data(argc, argv, n, (default_adi_data_t*)gen_data_ptr);
+}
+
+__attribute__((weak)) void free_data(void* gen_data_ptr) { free(gen_data_ptr); }
+#endif
+
 int main(int argc, char** argv) {
     /* Retrieve problem size. */
     int n = N2;
     int tsteps = TSTEPS;
 
     /* Variable declaration/allocation. */
-    POLYBENCH_2D_ARRAY_DECL(u, DATA_TYPE, N2, N2, n, n);
-    POLYBENCH_2D_ARRAY_DECL(v, DATA_TYPE, N2, N2, n, n);
-    POLYBENCH_2D_ARRAY_DECL(p, DATA_TYPE, N2, N2, n, n);
-    POLYBENCH_2D_ARRAY_DECL(q, DATA_TYPE, N2, N2, n, n);
+    void* data;
 
-    initialise_benchmark(argc, argv, tsteps, n, POLYBENCH_ARRAY(u), POLYBENCH_ARRAY(v), POLYBENCH_ARRAY(p),
-                         POLYBENCH_ARRAY(q));
+    initialise_benchmark(argc, argv, tsteps, n, &data);
 
     /* Start timer. */
     polybench_start_instruments;
 
     /* Run kernel. */
-    kernel_adi(tsteps, n, POLYBENCH_ARRAY(u), POLYBENCH_ARRAY(v), POLYBENCH_ARRAY(p), POLYBENCH_ARRAY(q));
+    kernel_adi(data);
 
     /* Stop and print timer. */
     polybench_stop_instruments;
 
-    finish_benchmark(tsteps, n, POLYBENCH_ARRAY(u), POLYBENCH_ARRAY(v), POLYBENCH_ARRAY(p), POLYBENCH_ARRAY(q));
+    finish_benchmark(data);
 
     polybench_print_instruments;
     /* Prevent dead-code elimination. All live-out data must be printed
        by the function call in argument. */
 #ifndef DISABLE_CHECKING
-    polybench_prevent_dce(print_array(n, POLYBENCH_ARRAY(u), "u"));
-    polybench_prevent_dce(print_array(n, POLYBENCH_ARRAY(u), "v"));
-    polybench_prevent_dce(print_array(n, POLYBENCH_ARRAY(u), "p"));
-    polybench_prevent_dce(print_array(n, POLYBENCH_ARRAY(u), "q"));
+    print_data(argc, argv, n, data);
 #endif
 
     /* Be clean. */
-    POLYBENCH_FREE_ARRAY(u);
-    POLYBENCH_FREE_ARRAY(v);
-    POLYBENCH_FREE_ARRAY(p);
-    POLYBENCH_FREE_ARRAY(q);
+    free_data(data);
 
     return 0;
 }

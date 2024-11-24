@@ -76,27 +76,55 @@
 #define POW_FUN(x, y) pow(x, y)
 #endif
 
-#ifdef __cplusplus
-extern "C"
-#endif
-    void
-    initialise_benchmark(int argc, char** argv, int tsteps, int n, DATA_TYPE POLYBENCH_2D(u, N2, N2, n, n),
-                         DATA_TYPE POLYBENCH_2D(v, N2, N2, n, n), DATA_TYPE POLYBENCH_2D(p, N2, N2, n, n),
-                         DATA_TYPE POLYBENCH_2D(q, N2, N2, n, n));
+typedef struct {
+    DATA_TYPE POLYBENCH_2D(u, N2, N2, n, n);
+    DATA_TYPE POLYBENCH_2D(v, N2, N2, n, n);
+    DATA_TYPE POLYBENCH_2D(p, N2, N2, n, n);
+    DATA_TYPE POLYBENCH_2D(q, N2, N2, n, n);
+    int tsteps;
+    int n;
+    int argc;
+    char **argv;
+} default_adi_data_t;
 
 #ifdef __cplusplus
 extern "C"
 #endif
     void
-    finish_benchmark(int tsteps, int n, DATA_TYPE POLYBENCH_2D(u, N2, N2, n, n),
-                     DATA_TYPE POLYBENCH_2D(v, N2, N2, n, n), DATA_TYPE POLYBENCH_2D(p, N2, N2, n, n),
-                     DATA_TYPE POLYBENCH_2D(q, N2, N2, n, n));
+    default_initialise_benchmark(int argc, char **argv, int tsteps, int n, default_adi_data_t *data_ptr);
+#ifdef __cplusplus
+extern "C"
+#endif
+    void
+    initialise_benchmark(int argc, char **argv, int tsteps, int n, void **data_ptr);
 
 #ifdef __cplusplus
 extern "C"
 #endif
     void
-    kernel_adi(int tsteps, int n, DATA_TYPE POLYBENCH_2D(u, N2, N2, n, n), DATA_TYPE POLYBENCH_2D(v, N2, N2, n, n),
-               DATA_TYPE POLYBENCH_2D(p, N2, N2, n, n), DATA_TYPE POLYBENCH_2D(q, N2, N2, n, n));
+    finish_benchmark(void *data_ptr);
+
+#ifdef __cplusplus
+extern "C"
+#endif
+    void
+    default_print_data(int argc, char **argv, int n, default_adi_data_t *data_ptr);
+#ifdef __cplusplus
+extern "C"
+#endif
+    void
+    print_data(int argc, char **argv, int n, void *data_ptr);
+
+#ifdef __cplusplus
+extern "C"
+#endif
+    void
+    free_data(void *data_ptr);
+
+#ifdef __cplusplus
+extern "C"
+#endif
+    void
+    kernel_adi(void *data_ptr);
 
 #endif /* !_ADI_H */

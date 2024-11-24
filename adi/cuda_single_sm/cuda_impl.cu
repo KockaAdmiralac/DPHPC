@@ -7,54 +7,49 @@
 #include "adi.h"
 
 typedef struct {
+    default_adi_data_t adi_data;
     DATA_TYPE *u_dev;
     DATA_TYPE *v_dev;
     DATA_TYPE *p_dev;
     DATA_TYPE *q_dev;
-} kernel_init_t;
+} cuda_adi_data_t;
 
-kernel_init_t device_addrs;
+void initialise_benchmark(int argc, char **argv, int tsteps, int n, void **gen_data_ptr) {
+    *gen_data_ptr = polybench_alloc_data(1, sizeof(cuda_adi_data_t));
+    cuda_adi_data_t *data_ptr = (cuda_adi_data_t *)(*gen_data_ptr);
+    default_initialise_benchmark(argc, argv, tsteps, n, &data_ptr->adi_data);
 
-void initialise_benchmark(int argc, char **argv, int tsteps, int n, DATA_TYPE POLYBENCH_2D(u, N2, N2, n, n),
-                          DATA_TYPE POLYBENCH_2D(v, N2, N2, n, n), DATA_TYPE POLYBENCH_2D(p, N2, N2, n, n),
-                          DATA_TYPE POLYBENCH_2D(q, N2, N2, n, n)) {
-    (void)tsteps;
-    (void)n;
-    (void)argc;
-    (void)argv;
+    gpuErrchk(cudaMalloc(&data_ptr->u_dev, sizeof(DATA_TYPE) * n * n));
+    gpuErrchk(cudaMalloc(&data_ptr->v_dev, sizeof(DATA_TYPE) * n * n));
+    gpuErrchk(cudaMalloc(&data_ptr->p_dev, sizeof(DATA_TYPE) * n * n));
+    gpuErrchk(cudaMalloc(&data_ptr->q_dev, sizeof(DATA_TYPE) * n * n));
 
-    int i, j;
-
-    for (i = 0; i < n; i++)
-        for (j = 0; j < n; j++) {
-            u[i][j] = (DATA_TYPE)(i + n - j) / n;
-        }
-
-    gpuErrchk(cudaMalloc(&device_addrs.u_dev, sizeof(DATA_TYPE) * n * n));
-    gpuErrchk(cudaMalloc(&device_addrs.v_dev, sizeof(DATA_TYPE) * n * n));
-    gpuErrchk(cudaMalloc(&device_addrs.p_dev, sizeof(DATA_TYPE) * n * n));
-    gpuErrchk(cudaMalloc(&device_addrs.q_dev, sizeof(DATA_TYPE) * n * n));
-
-    gpuErrchk(cudaMemcpy(device_addrs.u_dev, u, sizeof(DATA_TYPE) * n * n, cudaMemcpyHostToDevice));
-    gpuErrchk(cudaMemcpy(device_addrs.v_dev, v, sizeof(DATA_TYPE) * n * n, cudaMemcpyHostToDevice));
-    gpuErrchk(cudaMemcpy(device_addrs.p_dev, p, sizeof(DATA_TYPE) * n * n, cudaMemcpyHostToDevice));
-    gpuErrchk(cudaMemcpy(device_addrs.q_dev, q, sizeof(DATA_TYPE) * n * n, cudaMemcpyHostToDevice));
+    gpuErrchk(cudaMemcpy(data_ptr->u_dev, data_ptr->adi_data.u, sizeof(DATA_TYPE) * n * n, cudaMemcpyHostToDevice));
+    gpuErrchk(cudaMemcpy(data_ptr->v_dev, data_ptr->adi_data.v, sizeof(DATA_TYPE) * n * n, cudaMemcpyHostToDevice));
+    gpuErrchk(cudaMemcpy(data_ptr->p_dev, data_ptr->adi_data.p, sizeof(DATA_TYPE) * n * n, cudaMemcpyHostToDevice));
+    gpuErrchk(cudaMemcpy(data_ptr->q_dev, data_ptr->adi_data.q, sizeof(DATA_TYPE) * n * n, cudaMemcpyHostToDevice));
 }
 
-void finish_benchmark(int tsteps, int n, DATA_TYPE POLYBENCH_2D(u, N2, N2, n, n),
-                      DATA_TYPE POLYBENCH_2D(v, N2, N2, n, n), DATA_TYPE POLYBENCH_2D(p, N2, N2, n, n),
-                      DATA_TYPE POLYBENCH_2D(q, N2, N2, n, n)) {
-    (void)tsteps;
-    (void)n;
-    gpuErrchk(cudaMemcpy(u, device_addrs.u_dev, sizeof(DATA_TYPE) * n * n, cudaMemcpyDeviceToHost));
-    gpuErrchk(cudaMemcpy(v, device_addrs.v_dev, sizeof(DATA_TYPE) * n * n, cudaMemcpyDeviceToHost));
-    gpuErrchk(cudaMemcpy(p, device_addrs.p_dev, sizeof(DATA_TYPE) * n * n, cudaMemcpyDeviceToHost));
-    gpuErrchk(cudaMemcpy(q, device_addrs.q_dev, sizeof(DATA_TYPE) * n * n, cudaMemcpyDeviceToHost));
+void finish_benchmark(void *gen_data_ptr) {
+    cuda_adi_data_t *data_ptr = (cuda_adi_data_t *)gen_data_ptr;
+    int n = data_ptr->adi_data.n;
+    gpuErrchk(cudaMemcpy(data_ptr->adi_data.u, data_ptr->u_dev, sizeof(DATA_TYPE) * n * n, cudaMemcpyDeviceToHost));
+    gpuErrchk(cudaMemcpy(data_ptr->adi_data.v, data_ptr->v_dev, sizeof(DATA_TYPE) * n * n, cudaMemcpyDeviceToHost));
+    gpuErrchk(cudaMemcpy(data_ptr->adi_data.p, data_ptr->p_dev, sizeof(DATA_TYPE) * n * n, cudaMemcpyDeviceToHost));
+    gpuErrchk(cudaMemcpy(data_ptr->adi_data.q, data_ptr->q_dev, sizeof(DATA_TYPE) * n * n, cudaMemcpyDeviceToHost));
+}
 
-    gpuErrchk(cudaFree(device_addrs.u_dev));
-    gpuErrchk(cudaFree(device_addrs.v_dev));
-    gpuErrchk(cudaFree(device_addrs.p_dev));
-    gpuErrchk(cudaFree(device_addrs.q_dev));
+void print_data(int argc, char **argv, int n, void *gen_data_ptr) {
+    default_print_data(argc, argv, n, &((cuda_adi_data_t *)gen_data_ptr)->adi_data);
+}
+
+void free_data(void *gen_data_ptr) {
+    cuda_adi_data_t *data_ptr = (cuda_adi_data_t *)gen_data_ptr;
+    gpuErrchk(cudaFree(data_ptr->u_dev));
+    gpuErrchk(cudaFree(data_ptr->v_dev));
+    gpuErrchk(cudaFree(data_ptr->p_dev));
+    gpuErrchk(cudaFree(data_ptr->q_dev));
+    free(gen_data_ptr);
 }
 
 /* Main computational kernel. The whole function will be timed,
@@ -125,9 +120,9 @@ __global__ void kernel_adi_single_sm(int tsteps, int n, DATA_TYPE *u, DATA_TYPE 
     }
 }
 
-void kernel_adi(int tsteps, int n, DATA_TYPE POLYBENCH_2D(u, N2, N2, n, n), DATA_TYPE POLYBENCH_2D(v, N2, N2, n, n),
-                DATA_TYPE POLYBENCH_2D(p, N2, N2, n, n), DATA_TYPE POLYBENCH_2D(q, N2, N2, n, n)) {
-    kernel_adi_single_sm<<<1, 1>>>(tsteps, n, device_addrs.u_dev, device_addrs.v_dev, device_addrs.p_dev,
-                                   device_addrs.q_dev);
+void kernel_adi(void *gen_data_ptr) {
+    cuda_adi_data_t *data_ptr = (cuda_adi_data_t *)gen_data_ptr;
+    kernel_adi_single_sm<<<1, 1>>>(data_ptr->adi_data.tsteps, data_ptr->adi_data.n, data_ptr->u_dev, data_ptr->v_dev,
+                                   data_ptr->p_dev, data_ptr->q_dev);
     gpuErrchk(cudaDeviceSynchronize());
 }
