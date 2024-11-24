@@ -7,45 +7,15 @@
 #include "adi.h"
 #define BLOCK_SIZE 8
 
-void initialise_benchmark(int argc, char** argv, int tsteps, int n, DATA_TYPE POLYBENCH_2D(u, N2, N2, n, n),
-                          DATA_TYPE POLYBENCH_2D(v, N2, N2, n, n), DATA_TYPE POLYBENCH_2D(p, N2, N2, n, n),
-                          DATA_TYPE POLYBENCH_2D(q, N2, N2, n, n)) {
-    (void)tsteps;
-    (void)argc;
-    (void)argv;
-    (void)n;
-    (void)u;
-    (void)v;
-    (void)p;
-    (void)q;
-
-    int i, j;
-
-    for (i = 0; i < n; i++)
-        for (j = 0; j < n; j++) {
-            u[i][j] = (DATA_TYPE)(i + n - j) / n;
-        }
-}
-
-void finish_benchmark(int tsteps, int n, DATA_TYPE POLYBENCH_2D(u, N2, N2, n, n),
-                      DATA_TYPE POLYBENCH_2D(v, N2, N2, n, n), DATA_TYPE POLYBENCH_2D(p, N2, N2, n, n),
-                      DATA_TYPE POLYBENCH_2D(q, N2, N2, n, n)) {
-    (void)tsteps;
-    (void)n;
-    (void)u;
-    (void)v;
-    (void)p;
-    (void)q;
-}
-
 /* Main computational kernel. The whole function will be timed,
    including the call and return. */
 /* Based on a Fortran code fragment from Figure 5 of
  * "Automatic Data and Computation Decomposition on Distributed Memory Parallel
  * Computers" by Peizong Lee and Zvi Meir Kedem, TOPLAS, 2002
  */
-void kernel_adi(int tsteps, int n, DATA_TYPE POLYBENCH_2D(u, N2, N2, n, n), DATA_TYPE POLYBENCH_2D(v, N2, N2, n, n),
-                DATA_TYPE POLYBENCH_2D(p, N2, N2, n, n), DATA_TYPE POLYBENCH_2D(q, N2, N2, n, n)) {
+void kernel_adi_orig(int tsteps, int n, DATA_TYPE POLYBENCH_2D(u, N2, N2, n, n),
+                     DATA_TYPE POLYBENCH_2D(v, N2, N2, n, n), DATA_TYPE POLYBENCH_2D(p, N2, N2, n, n),
+                     DATA_TYPE POLYBENCH_2D(q, N2, N2, n, n)) {
     int t, j;
     DATA_TYPE DX, DY, DT;
     DATA_TYPE B1, B2;
@@ -154,4 +124,9 @@ void kernel_adi(int tsteps, int n, DATA_TYPE POLYBENCH_2D(u, N2, N2, n, n), DATA
             }
         }
     }
+}
+
+void kernel_adi(void *gen_data_ptr) {
+    default_adi_data_t *data_ptr = (default_adi_data_t *)gen_data_ptr;
+    kernel_adi_orig(data_ptr->tsteps, data_ptr->n, data_ptr->u, data_ptr->v, data_ptr->p, data_ptr->q);
 }
