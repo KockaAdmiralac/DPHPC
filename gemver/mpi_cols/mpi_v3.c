@@ -5,11 +5,12 @@
 #include <mpi.h>
 
 /* Include benchmark-specific header. */
+#include <caliper/cali.h>
 #include <math.h>
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
-#include <caliper/cali.h>
+
 #include "gemver.h"
 
 int world_size;
@@ -174,7 +175,6 @@ void kernel_gemver(int n, DATA_TYPE alpha, DATA_TYPE beta, DATA_TYPE POLYBENCH_2
                    DATA_TYPE POLYBENCH_1D(u2, N2, n), DATA_TYPE POLYBENCH_1D(v2, N2, n),
                    DATA_TYPE POLYBENCH_1D(w, N2, n), DATA_TYPE POLYBENCH_1D(x, N2, n), DATA_TYPE POLYBENCH_1D(y, N2, n),
                    DATA_TYPE POLYBENCH_1D(z, N2, n)) {
-
     cali_begin_region("kernel");
 
     /*

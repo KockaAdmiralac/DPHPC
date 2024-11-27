@@ -289,8 +289,8 @@ Your results should look something like this:
 ```
 Path          Min time/rank Max time/rank Avg time/rank Time %    
 kernel             0.035150      0.035150      0.035150  3.862603 
-[space] [space] [space] [space] MPI_Gatherv      0.874397      0.874397      0.874397 96.085520 
-[space] [space] [space] [space] MPI_Reduce       0.000039      0.000039      0.000039  0.004232 
+    MPI_Gatherv      0.874397      0.874397      0.874397 96.085520 
+    MPI_Reduce       0.000039      0.000039      0.000039  0.004232 
 MPI_Finalize       0.000005      0.000005      0.000005  0.000585 
 MPI_Comm_dup       0.000027      0.000027      0.000027  0.003002 
 ```
