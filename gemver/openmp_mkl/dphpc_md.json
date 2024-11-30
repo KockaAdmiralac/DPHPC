@@ -1,0 +1,14 @@
+{
+    "extra_compile_options": [
+        "-I/usr/include/mkl",
+        "-Wl,--start-group",
+        "/usr/lib/x86_64-linux-gnu/libmkl_intel_ilp64.a",
+        "/usr/lib/x86_64-linux-gnu/libmkl_intel_thread.a",
+        "/usr/lib/x86_64-linux-gnu/libmkl_core.a",
+        "-Wl,--end-group",
+        "-liomp5",
+        "-lpthread",
+        "-lm",
+        "-ldl"
+    ]
+}
