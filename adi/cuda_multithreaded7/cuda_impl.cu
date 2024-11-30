@@ -50,6 +50,7 @@ void initialise_benchmark(int argc, char **argv, int tsteps, int n, void **gen_d
     copy_array_transposed(data_ptr->adi_data.v, data_ptr->v_dev, cudaMemcpyHostToDevice);
     copy_array_transposed(data_ptr->adi_data.p, data_ptr->p_dev, cudaMemcpyHostToDevice);
     copy_array_transposed(data_ptr->adi_data.q, data_ptr->q_dev, cudaMemcpyHostToDevice);
+    gpuErrchk(cudaDeviceSynchronize());
 }
 
 void finish_benchmark(void *gen_data_ptr) {

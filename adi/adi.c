@@ -20,7 +20,6 @@
 /* Include benchmark-specific header. */
 #include "adi.h"
 
-#ifndef DISABLE_CHECKING
 /* DCE code. Must scan the entire live-out data.
    Can be used also to check the correctness of the output. */
 static void print_array(int n, DATA_TYPE POLYBENCH_2D(u, N2, N2, n, n), const char* arr_name)
@@ -42,7 +41,6 @@ static void print_array(int n, DATA_TYPE POLYBENCH_2D(u, N2, N2, n, n), const ch
     print_binary_array(n * n, (double*)u, arr_name[0]);
 #endif
 }
-#endif
 
 void default_initialise_benchmark(int argc, char** argv, int tsteps, int n, default_adi_data_t* data_ptr) {
     data_ptr->tsteps = tsteps;
@@ -55,6 +53,9 @@ void default_initialise_benchmark(int argc, char** argv, int tsteps, int n, defa
     for (i = 0; i < n; i++)
         for (j = 0; j < n; j++) {
             data_ptr->u[i][j] = (DATA_TYPE)(i + n - j) / n;
+            data_ptr->v[i][j] = 0.0;
+            data_ptr->p[i][j] = 0.0;
+            data_ptr->q[i][j] = 0.0;
         }
 }
 
@@ -64,12 +65,14 @@ void default_initialise_benchmark_and_alloc(int argc, char** argv, int tsteps, i
 }
 
 void default_print_data(int argc, char** argv, int n, default_adi_data_t* data_ptr) {
+#ifndef DISABLE_CHECKING
     (void)argc;
     (void)argv;
     polybench_prevent_dce(print_array(n, data_ptr->u, "u"));
     polybench_prevent_dce(print_array(n, data_ptr->v, "v"));
     polybench_prevent_dce(print_array(n, data_ptr->p, "p"));
     polybench_prevent_dce(print_array(n, data_ptr->q, "q"));
+#endif
 }
 
 #ifdef __GNUC__

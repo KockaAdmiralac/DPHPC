@@ -28,6 +28,7 @@ void initialise_benchmark(int argc, char **argv, int tsteps, int n, void **gen_d
     gpuErrchk(cudaMemcpy(data_ptr->v_dev, data_ptr->adi_data.v, sizeof(DATA_TYPE) * n * n, cudaMemcpyHostToDevice));
     gpuErrchk(cudaMemcpy(data_ptr->p_dev, data_ptr->adi_data.p, sizeof(DATA_TYPE) * n * n, cudaMemcpyHostToDevice));
     gpuErrchk(cudaMemcpy(data_ptr->q_dev, data_ptr->adi_data.q, sizeof(DATA_TYPE) * n * n, cudaMemcpyHostToDevice));
+    gpuErrchk(cudaDeviceSynchronize());
 }
 
 void finish_benchmark(void *gen_data_ptr) {
