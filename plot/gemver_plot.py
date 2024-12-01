@@ -30,6 +30,7 @@ for filename in os.listdir(directory):
                     d = json.load(f)
                     temp_data = {}
                     temp_data['threads'] = t
+                    temp_data['tr'] = int(t)
                     temp_data['N'] = n2
                     temp_data['N2'] = int(n2)
                     temp_data['speedup'] = 0
@@ -68,16 +69,20 @@ serial_df = df.loc[df['implementation'].isin(serial_implementations)]
 
 mpi_df_8 = mpi_df.loc[mpi_df['threads']=='8'] #better than 8 discuss
 open_df_8 = open_df.loc[open_df['threads']=='8']
+mpi_df_4000 = mpi_df.loc[mpi_df['N2']== 4000] 
+open_df_4000 = open_df.loc[open_df['N2']== 4000]
 
 mpi_df_8 = mpi_df_8.sort_values('N2')
 cuda_df = cuda_df.sort_values('N2')
+mpi_df_4000 = mpi_df_4000.sort_values('tr')
+open_df_4000 = open_df_4000.sort_values('tr')
 open_df_8 = open_df_8.sort_values('N2')
 serial_df = serial_df.sort_values('N2')
 
-plot_list = [mpi_implementations, cuda_implementations, serial_implementations, open_implementations]
-df_list = [mpi_df_8, cuda_df, serial_df, open_df_8]
-filename_list = ['mpi_t_8', 'cuda', 'serial', 'open_t_8']
-title_list = ['GEMVER MPI - 8 processes', 'GEMVER cuda', 'GEMVER serial', 'GEMVER OpenMp - 8 threads']
+plot_list = [mpi_implementations, cuda_implementations, serial_implementations, open_implementations, mpi_implementations, open_implementations]
+df_list = [mpi_df_8, cuda_df, serial_df, open_df_8, mpi_df_4000, open_df_4000]
+filename_list = ['mpi_t_8', 'cuda', 'serial', 'open_t_8', 'mpi_n_4000', 'open_n_4000']
+title_list = ['GEMVER MPI - 8 processes', 'GEMVER cuda', 'GEMVER serial', 'GEMVER OpenMp - 8 threads', 'GEMVER MPI - N = 4000', 'GEMVER OpenMp - N = 4000']
 
 for i,imp_list in enumerate(plot_list):
     fig, ax = plt.subplots(figsize=(9,5))
@@ -86,7 +91,7 @@ for i,imp_list in enumerate(plot_list):
     for j, name in enumerate(imp_list):
         helper_df = df_current.loc[df['implementation']==name]
         y = helper_df.speedup.to_numpy()
-        x = helper_df.N2.to_numpy()
+        x = helper_df.tr.to_numpy() if i > 3  else helper_df.N2.to_numpy()
         y_std = helper_df.deviation.to_numpy()
         error = y_std
         lower = y - error
@@ -107,10 +112,12 @@ for i,imp_list in enumerate(plot_list):
         # ax.plot(x, lower,  alpha=0.1)
         # ax.plot(x, upper,  alpha=0.1)
         # ax.fill_between(x, lower, upper, alpha=0.2)
-    ax.set_xlabel('N size')
+    if i > 3:
+        ax.set_xlabel('# threads')
+    else:
+        ax.set_xlabel('N size')
     ax.set_ylabel('x speedup')
     ax.legend(loc="upper right")
-    # aaaaa=title_list[i]
     plt.title(title_list[i])
 
     file_path = "plot\\imgs\\gemver" + filename + ".png"
