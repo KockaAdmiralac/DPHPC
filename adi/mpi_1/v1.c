@@ -65,6 +65,11 @@ void finish_benchmark(void* gen_data_ptr) {
     MPI_Finalize();
 }
 
+bool should_print_counter(void* gen_data_ptr) {
+    mpi_adi_data_t* data_ptr = (mpi_adi_data_t*)gen_data_ptr;
+    return data_ptr->rank == 0;
+}
+
 void print_data(int argc, char** argv, int n, void* gen_data_ptr) {
     mpi_adi_data_t* data_ptr = (mpi_adi_data_t*)gen_data_ptr;
     if (data_ptr->rank == 0) {
