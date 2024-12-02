@@ -9,6 +9,7 @@
  */
 #ifndef _ADI_H
 #define _ADI_H
+#include <stdbool.h>
 
 /* Default to LARGE_DATASET. */
 #if !defined(MINI_DATASET) && !defined(SMALL_DATASET) && !defined(MEDIUM_DATASET) && !defined(LARGE_DATASET) && \
@@ -109,6 +110,11 @@ extern "C"
 #endif
     void
     default_print_data(int argc, char **argv, int n, default_adi_data_t *data_ptr);
+#ifdef __cplusplus
+extern "C"
+#endif
+    bool
+    should_print_counter(void *gen_data_ptr);
 #ifdef __cplusplus
 extern "C"
 #endif

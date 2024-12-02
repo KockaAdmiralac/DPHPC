@@ -10,6 +10,7 @@
 /* adi.c: this file is part of PolyBench/C */
 
 #include <math.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
@@ -87,6 +88,11 @@ __attribute__((weak)) void print_data(int argc, char** argv, int n, void* gen_da
     default_print_data(argc, argv, n, (default_adi_data_t*)gen_data_ptr);
 }
 
+__attribute__((weak)) bool should_print_counter(void* gen_data_ptr) {
+    (void)gen_data_ptr;
+    return true;
+}
+
 __attribute__((weak)) void free_data(void* gen_data_ptr) { free(gen_data_ptr); }
 #endif
 
@@ -111,7 +117,9 @@ int main(int argc, char** argv) {
 
     finish_benchmark(data);
 
-    polybench_print_instruments;
+    if (should_print_counter(data)) {
+        polybench_print_instruments;
+    }
     /* Prevent dead-code elimination. All live-out data must be printed
        by the function call in argument. */
 #ifndef DISABLE_CHECKING
