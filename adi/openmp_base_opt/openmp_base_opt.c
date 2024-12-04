@@ -5,7 +5,6 @@
 #include <omp.h>
 
 #include "adi.h"
-#define BLOCK_SIZE 4
 
 /* Main computational kernel. The whole function will be timed,
    including the call and return. */
@@ -46,24 +45,19 @@ void kernel_adi_orig(int tsteps, int n, DATA_TYPE POLYBENCH_2D(u, N2, N2, n, n),
     DATA_TYPE denom_inv;
     //  TODO also try to store local variables p[i][j - 1] and q[i][j - 1] and see if it improves performance or reduces
     //  noise to OPENMP
-    int jj;
     for (t = 1; t <= _PB_TSTEPS; t++) {
 // Column Sweep
-#pragma omp parallel for private(denom_inv, j, jj)
-        for (int ii = 1; ii < _PB_N - 1; ii += BLOCK_SIZE) {
-            for (int jj = 1; jj < _PB_N - 1; jj += BLOCK_SIZE) {
-                for (int i = ii; i < ii + BLOCK_SIZE && i < _PB_N - 1; i++) {
-                    v[0][i] = SCALAR_VAL(1.0);
-                    p[i][0] = SCALAR_VAL(0.0);
-                    q[i][0] = v[0][i];
-                    for (int j = jj; j < jj + BLOCK_SIZE && j < _PB_N - 1; j++) {
-                        denom_inv = SCALAR_VAL(1.0) / (a * p[i][j - 1] + b);
-                        p[i][j] = -c * denom_inv;
-                        q[i][j] =
-                            (-d * u[j][i - 1] + const_1_2d * u[j][i] - f * u[j][i + 1] + const_neg_a * q[i][j - 1]) *
-                            denom_inv;
-                    }
-                }
+#pragma omp parallel for private(denom_inv, j)
+        for (int i = 1; i < _PB_N - 1; i++) {
+            v[0][i] = SCALAR_VAL(1.0);
+            p[i][0] = SCALAR_VAL(0.0);
+            q[i][0] = v[0][i];
+            for (int j = 1; j < _PB_N - 1; j++) {
+                denom_inv = SCALAR_VAL(1.0) / (a * p[i][j - 1] + b);
+                p[i][j] = -c * denom_inv;
+                q[i][j] =
+                    (-d * u[j][i - 1] + const_1_2d * u[j][i] - f * u[j][i + 1] + const_neg_a * q[i][j - 1]) *
+                    denom_inv;
             }
         }
 #pragma omp parallel for  private(j)
@@ -75,22 +69,18 @@ void kernel_adi_orig(int tsteps, int n, DATA_TYPE POLYBENCH_2D(u, N2, N2, n, n),
             }
         }
 // Row Sweep
-#pragma omp parallel for  private(j, denom_inv, jj)
-        for (int ii = 1; ii < _PB_N - 1; ii += BLOCK_SIZE) {
-            for (int jj = 1; jj < _PB_N - 1; jj += BLOCK_SIZE) {
-                for (int i = ii; i < ii + BLOCK_SIZE && i < _PB_N - 1; i++) {
-                    u[i][0] = SCALAR_VAL(1.0);
-                    p[i][0] = SCALAR_VAL(0.0);
-                    q[i][0] = u[i][0];
+#pragma omp parallel for  private(j, denom_inv)
+        for (int i = 1; i  < _PB_N - 1; i++) {
+            u[i][0] = SCALAR_VAL(1.0);
+            p[i][0] = SCALAR_VAL(0.0);
+            q[i][0] = u[i][0];
 
-                    for (int j = jj; j < jj + BLOCK_SIZE && j < _PB_N - 1; j++) {
-                        denom_inv = SCALAR_VAL(1.0) / (d * p[i][j - 1] + e);
-                        p[i][j] = -f * denom_inv;
-                        q[i][j] = (const_neg_a * v[i - 1][j] + const_1_2a * v[i][j] + const_neg_c * v[i + 1][j] -
-                                   d * q[i][j - 1]) *
-                                  denom_inv;
-                    }
-                }
+            for (int j = 1; j < _PB_N - 1; j++) {
+                denom_inv = SCALAR_VAL(1.0) / (d * p[i][j - 1] + e);
+                p[i][j] = -f * denom_inv;
+                q[i][j] = (const_neg_a * v[i - 1][j] + const_1_2a * v[i][j] + const_neg_c * v[i + 1][j] -
+                            d * q[i][j - 1]) *
+                            denom_inv;
             }
         }
 #pragma omp parallel for  private(j)
