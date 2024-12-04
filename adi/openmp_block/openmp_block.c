@@ -70,18 +70,7 @@ void kernel_adi_orig(int tsteps, int n, DATA_TYPE POLYBENCH_2D(u, N2, N2, n, n),
         // // Backward Pass (Sequential)
         for (int i = 1; i < _PB_N - 1; i++) {
             v[_PB_N - 1][i] = SCALAR_VAL(1.0);
-            for (j = _PB_N - 2; j >= 8; j -= 8) {
-                v[j][i] = p[i][j] * v[j + 1][i] + q[i][j];
-                v[j - 1][i] = p[i][j - 1] * v[j][i] + q[i][j - 1];
-                v[j - 2][i] = p[i][j - 2] * v[j - 1][i] + q[i][j - 2];
-                v[j - 3][i] = p[i][j - 3] * v[j - 2][i] + q[i][j - 3];
-                v[j - 4][i] = p[i][j - 4] * v[j - 3][i] + q[i][j - 4];
-                v[j - 5][i] = p[i][j - 5] * v[j - 4][i] + q[i][j - 5];
-                v[j - 6][i] = p[i][j - 6] * v[j - 5][i] + q[i][j - 6];
-                v[j - 7][i] = p[i][j - 7] * v[j - 6][i] + q[i][j - 7];
-            }
-            // // Handle remaining elements
-            for (; j >= 1; j--) {
+            for (j = _PB_N - 2; j >= 1; j--) {
                 v[j][i] = p[i][j] * v[j + 1][i] + q[i][j];
             }
         }
@@ -107,19 +96,7 @@ void kernel_adi_orig(int tsteps, int n, DATA_TYPE POLYBENCH_2D(u, N2, N2, n, n),
 #pragma omp parallel for  private(j)
         for (int i = 1; i < _PB_N - 1; i++) {
             u[i][_PB_N - 1] = SCALAR_VAL(1.0);
-            j = _PB_N - 2;
-            for (; j >= 8; j -= 8) {
-                u[i][j] = p[i][j] * u[i][j + 1] + q[i][j];
-                u[i][j - 1] = p[i][j - 1] * u[i][j] + q[i][j - 1];
-                u[i][j - 2] = p[i][j - 2] * u[i][j - 1] + q[i][j - 2];
-                u[i][j - 3] = p[i][j - 3] * u[i][j - 2] + q[i][j - 3];
-                u[i][j - 4] = p[i][j - 4] * u[i][j - 3] + q[i][j - 4];
-                u[i][j - 5] = p[i][j - 5] * u[i][j - 4] + q[i][j - 5];
-                u[i][j - 6] = p[i][j - 6] * u[i][j - 5] + q[i][j - 6];
-                u[i][j - 7] = p[i][j - 7] * u[i][j - 6] + q[i][j - 7];
-            }
-            // Handle remaining elements
-            for (; j >= 1; j--) {
+            for (j = _PB_N - 2; j >= 1; j--) {
                 u[i][j] = p[i][j] * u[i][j + 1] + q[i][j];
             }
         }
