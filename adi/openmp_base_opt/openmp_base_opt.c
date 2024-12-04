@@ -5,7 +5,7 @@
 #include <omp.h>
 
 #include "adi.h"
-#define BLOCK_SIZE 6
+#define BLOCK_SIZE 4
 
 /* Main computational kernel. The whole function will be timed,
    including the call and return. */
@@ -49,7 +49,7 @@ void kernel_adi_orig(int tsteps, int n, DATA_TYPE POLYBENCH_2D(u, N2, N2, n, n),
     int jj;
     for (t = 1; t <= _PB_TSTEPS; t++) {
 // Column Sweep
-#pragma omp parallel for schedule(dynamic) private(denom_inv, j, jj)
+#pragma omp parallel for private(denom_inv, j, jj)
         for (int ii = 1; ii < _PB_N - 1; ii += BLOCK_SIZE) {
             for (int jj = 1; jj < _PB_N - 1; jj += BLOCK_SIZE) {
                 for (int i = ii; i < ii + BLOCK_SIZE && i < _PB_N - 1; i++) {
@@ -66,7 +66,7 @@ void kernel_adi_orig(int tsteps, int n, DATA_TYPE POLYBENCH_2D(u, N2, N2, n, n),
                 }
             }
         }
-#pragma omp parallel for schedule(dynamic) private(j)
+#pragma omp parallel for  private(j)
         // // Backward Pass (Sequential)
         for (int i = 1; i < _PB_N - 1; i++) {
             v[_PB_N - 1][i] = SCALAR_VAL(1.0);
@@ -86,7 +86,7 @@ void kernel_adi_orig(int tsteps, int n, DATA_TYPE POLYBENCH_2D(u, N2, N2, n, n),
             }
         }
 // Row Sweep
-#pragma omp parallel for schedule(dynamic) private(j, denom_inv, jj)
+#pragma omp parallel for  private(j, denom_inv, jj)
         for (int ii = 1; ii < _PB_N - 1; ii += BLOCK_SIZE) {
             for (int jj = 1; jj < _PB_N - 1; jj += BLOCK_SIZE) {
                 for (int i = ii; i < ii + BLOCK_SIZE && i < _PB_N - 1; i++) {
@@ -104,7 +104,7 @@ void kernel_adi_orig(int tsteps, int n, DATA_TYPE POLYBENCH_2D(u, N2, N2, n, n),
                 }
             }
         }
-#pragma omp parallel for schedule(dynamic) private(j)
+#pragma omp parallel for  private(j)
         for (int i = 1; i < _PB_N - 1; i++) {
             u[i][_PB_N - 1] = SCALAR_VAL(1.0);
             j = _PB_N - 2;
