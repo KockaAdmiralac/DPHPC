@@ -4,26 +4,7 @@ import functools
 import json
 from pathlib import Path
 from typing import Any, Iterable, List, Literal, Optional
-
-DefinesConstraints = list[dict[str, int | str]]
-
-
-@dataclass
-class Options:
-    defines: dict[str, str] = field(default_factory=lambda: {})
-    extra_compile_options: List[str] = field(default_factory=lambda: [])
-    data_check: Literal["strict", "fuzzy"] = "strict"
-    max_deviation: Optional[float] = None
-    defines_constraints: DefinesConstraints = field(default_factory=lambda: [])
-    extra_source_dirs: List[str] = field(default_factory=lambda: [])
-    extra_includes: List[str] = field(default_factory=lambda: [])
-    exclude_sources: List[str] = field(default_factory=lambda: [])
-
-    def __getitem__(self, item: str) -> Any:
-        return getattr(self, item)
-
-    def __setitem__(self, item: str, value: Any) -> None:
-        setattr(self, item, value)
+from structures import *
 
 
 DefaultOptions = Options()
@@ -44,7 +25,7 @@ def override_options(parent: Options, child: Options) -> Options:
     for param in Options.__dataclass_fields__:
         if child[param] is not None:
             if type(child[param]) == list:
-                ret[param] = parent[param] + child[param]
+                ret[param] = child[param]
             elif type(child[param]) == dict:
                 ret[param].update(child[param])
             else:

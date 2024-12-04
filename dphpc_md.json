@@ -1,3 +1,16 @@
 {
-    "defines": {"POLYBENCH_TIME":"","POLYBENCH_DUMP_ARRAYS":""}
+    "defines": {
+        "POLYBENCH_TIME": "",
+        "POLYBENCH_DUMP_ARRAYS": ""
+    },
+    "variant_configurations": [
+        {
+            "run_options": [
+                {
+                    "subvariant_name": "default subvariant name"
+                }
+            ],
+            "variant_name": "default variant name"
+        }
+    ]
 }

@@ -28,16 +28,16 @@ run single benchmark:
 
 prepare compilation (passed similar parameters to existing test.py's arguments):
     make benchmark choices list
-    make compilations list
+    make compilations dict
     iterate over requested benchmarks (adi, gemver):
         iterate over requested variants in each:
             iterate over N/tsteps ranges provided (respecting dphpc_md.json constraints):
+                variation on test.py's compile function stores parameters for compilation in compilations dict with binary path as key
                 iterate over subvariants (parameters to be taken from dphpc_md.json, only when enabled by argument):
                     add instances to benchmark choices list, multiple because we want multiple different run-time configurations using the same binary for openmp/mpi
-                    variation on test.py's compile function stores parameters for compilation in compilations list, including binary path and dependencies'
 
 compilation:
-    if all dependencies from requested compilation have mod time < binary's time:
+    if binary exists and all dependencies from requested compilation have mod time < binary's time:
         return existing binary
     call subprocess to perform compilation
 
