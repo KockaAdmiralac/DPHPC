@@ -5,7 +5,7 @@
 #include <omp.h>
 
 #include "adi.h"
-#define BLOCK_SIZE 8
+#define BLOCK_SIZE 4
 
 /* Main computational kernel. The whole function will be timed,
    including the call and return. */

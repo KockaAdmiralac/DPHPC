@@ -1,7 +1,7 @@
 /* Include polybench common header. */
 #include <polybench.h>
 
-#define BLOCK_SIZE 8
+#define BLOCK_SIZE 4
 /* Include benchmark-specific header. */
 #include "adi.h"
 
