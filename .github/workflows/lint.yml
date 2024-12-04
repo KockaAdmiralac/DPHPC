@@ -1,8 +1,8 @@
 name: Lint
 
 on:
-- push
-- workflow_dispatch
+  - push
+  - workflow_dispatch
 
 jobs:
   lint:
@@ -14,22 +14,23 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          cache: 'pip'
+          cache: "pip"
           python-version: "3.12"
-      - name: 'Install requirements'
+      - name: "Install requirements"
         run: |
           python -m venv .venv
           source .venv/bin/activate
           pip install -r requirements.txt
-      - name: 'Modify Actions PATH'
+      - name: "Modify Actions PATH"
         run: echo "$PWD/.venv/bin" >> $GITHUB_PATH
-      - name: 'Lint: Pyright'
+      - name: "Lint: Pyright"
         uses: jakebailey/pyright-action@v2
         with:
           version: PATH
-      - name: 'Lint: Black'
+      - name: "Lint: Black"
         uses: psf/black@stable
-      - uses: RafikFarhad/clang-format-github-action@v4
+      - name: "Lint: clang-format"
+        uses: jidicula/clang-format-action@v4.14.0
         with:
-          sources: "**/*.c,**/*.h,**/*.cu,**/*.cuh"
-          style: file
+          clang-format-version: 19
+          exclude-regex: ".*\\.venv/.*"
