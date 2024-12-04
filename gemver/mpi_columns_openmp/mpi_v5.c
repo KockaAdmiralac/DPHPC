@@ -3,7 +3,7 @@
 
 /* Include mpi header. */
 #include <mpi.h>
-
+#include <omp.h>
 /* Include benchmark-specific header. */
 #include <math.h>
 #include <stdio.h>
@@ -20,6 +20,7 @@ int remaining;
 
 int process_size;
 
+#define BLOCK_SIZE 64
 #define MAX_PROCESSES 16
 
 static int block_start_indx[MAX_PROCESSES];
@@ -128,6 +129,7 @@ void initialise_benchmark(int argc, char **argv, int n, DATA_TYPE *alpha, DATA_T
             process_A[i * process_size + j] = (DATA_TYPE)(i * (j + block_start_indx[world_rank]) % n) / n;
         }
     }
+    MPI_Barrier(MPI_COMM_WORLD);
 }
 
 void finish_benchmark(int n, DATA_TYPE alpha, DATA_TYPE beta, DATA_TYPE POLYBENCH_2D(A, N2, N2, n, n),
@@ -148,21 +150,20 @@ void finish_benchmark(int n, DATA_TYPE alpha, DATA_TYPE beta, DATA_TYPE POLYBENC
     (void)y;
     (void)z;
 
-    // Finalize the MPI environment.
+    POLYBENCH_FREE_ARRAY(process_v2);
+    POLYBENCH_FREE_ARRAY(process_v1);
+    POLYBENCH_FREE_ARRAY(process_w);
+    POLYBENCH_FREE_ARRAY(process_x);
+    POLYBENCH_FREE_ARRAY(process_z);
+    POLYBENCH_FREE_ARRAY(process_A);
+
+    fflush(stdout);
+    MPI_Barrier(MPI_COMM_WORLD);
     MPI_Finalize();
+    fflush(stdout);
 
     if (world_rank != 0) {
         /* Be clean. */
-        // POLYBENCH_FREE_ARRAY(A);
-        // POLYBENCH_FREE_ARRAY(u1);
-        // POLYBENCH_FREE_ARRAY(v1);
-        // POLYBENCH_FREE_ARRAY(u2);
-        // POLYBENCH_FREE_ARRAY(v2);
-        // POLYBENCH_FREE_ARRAY(w);
-        // POLYBENCH_FREE_ARRAY(x);
-        // POLYBENCH_FREE_ARRAY(y);
-        // POLYBENCH_FREE_ARRAY(z);
-
         exit(0);
     }
 }
@@ -181,24 +182,18 @@ void kernel_gemver(int n, DATA_TYPE alpha, DATA_TYPE beta, DATA_TYPE POLYBENCH_2
     calculate  A = A + u1*v1 + u2*v2
     */
     for (int i = 0; i < n; i++) {
+    #pragma omp simd
         for (int j = 0; j < process_size; j++) {
             process_A[i * process_size + j] += u1[i] * process_v1[j] + u2[i] * process_v2[j];
-        }
-    }
-
-    MPI_Gatherv(process_A, process_size, new_columns, A, num_elements_matrix, block_start_indx_matrix,
-                new_columns_to_get, 0, MPI_COMM_WORLD);
-
-    /*
-    calculate  x = x + b * A^T * y + z
-    */
-
-    for (int i = 0; i < n; i++)  // change indixes to transpose A
-    {
-        for (int j = 0; j < process_size; j++) {
             process_x[j] += beta * process_A[i * process_size + j] * y[i];
         }
     }
+
+    MPI_Request send_A_res;
+    MPI_Request send_x;
+
+    MPI_Igatherv(process_A, process_size, new_columns, A, num_elements_matrix, block_start_indx_matrix,
+                new_columns_to_get, 0, MPI_COMM_WORLD, &send_A_res);
 
     for (int j = 0; j < process_size; j++)  // careful need to add z outside of i loop!
     {
@@ -206,12 +201,11 @@ void kernel_gemver(int n, DATA_TYPE alpha, DATA_TYPE beta, DATA_TYPE POLYBENCH_2
     }
 
     // send results to first process
-    MPI_Gatherv(process_x, process_size, MPI_DOUBLE, x, num_elements, block_start_indx, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    MPI_Igatherv(process_x, process_size, MPI_DOUBLE, x, num_elements, block_start_indx, MPI_DOUBLE, 0, MPI_COMM_WORLD, &send_x);
 
     /*
     calculate  w += a * A * x
     */
-
     for (int i = 0; i < n; i++) {
         for (int j = 0; j < process_size; j++) {
             process_w[i] += alpha * process_A[i * process_size + j] * process_x[j];
@@ -219,13 +213,10 @@ void kernel_gemver(int n, DATA_TYPE alpha, DATA_TYPE beta, DATA_TYPE POLYBENCH_2
     }
     // combine all process w to the main w in process 0
     MPI_Reduce(process_w, w, n, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+    MPI_Wait(&send_A_res, MPI_STATUS_IGNORE);
+    MPI_Wait(&send_x, MPI_STATUS_IGNORE);
+
 
     //cali_end_region("kernel");
 
-    POLYBENCH_FREE_ARRAY(process_v2);
-    POLYBENCH_FREE_ARRAY(process_v1);
-    POLYBENCH_FREE_ARRAY(process_w);
-    POLYBENCH_FREE_ARRAY(process_x);
-    POLYBENCH_FREE_ARRAY(process_z);
-    POLYBENCH_FREE_ARRAY(process_A);
 }
