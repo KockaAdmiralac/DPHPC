@@ -52,6 +52,7 @@ RUN apt install --allow-unauthenticated -y \
     mypy \
     clang-format \
     black \
+    valgrind \
     apt-file && \
     apt-file update
 
