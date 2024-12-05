@@ -152,7 +152,6 @@ def compare_results(
                     cand_arr,
                     truth_arr,
                 )
-            return np.array((1,))
     return np.concatenate(deviation_runs) if len(deviation_runs) else np.empty((1,))
 
 
