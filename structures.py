@@ -93,6 +93,7 @@ class BenchmarkConfiguration:
     check_results_between_runs: bool
     save_raw_outputs: bool
     save_parsed_output_data: bool
+    generated_by: Optional[str] = None
 
 
 @dataclass

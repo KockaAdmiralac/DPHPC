@@ -48,9 +48,12 @@ def prepare_compilation(conf: BenchmarkConfiguration):
     return (benchmark_choices, compilations, ground_truth_compilations)
 
 
+ground_truth_run_func = Callable[[CompilationSettings], Tuple[Path, ParsedOutputData]]
+
+
 def compile_run_ground_truth(
     gt_comps: Iterable[CompilationSettings],
-) -> Iterable[Callable[[], Tuple[Path, ParsedOutputData]]]:
+) -> Iterable[Tuple[ground_truth_run_func, List[CompilationSettings]]]:
     def single_gt(gt: CompilationSettings) -> ParsedOutputData:
         compat.compile(gt)
         raw_res = single_benchmark.lowlevel_run(
@@ -58,36 +61,52 @@ def compile_run_ground_truth(
                 str(gt.binary_path),
             ],
             lambda prior_env: prior_env,
+            user_msg_fstr="Collecting ground truth with args {joined_args}",
         )
         assert (
             raw_res.exit_code == 0
-        ), f"Ground truth failed to run, for binary {gt.binary_path}"
+        ), f"Ground truth failed to run, for binary {gt.binary_path} got exit code {raw_res.exit_code}"
         parsed = datacheck.parse_dump_to_arrays(
             raw_res.raw_stderr, is_human_readable=gt.orig_options.human_readable_output
         )
-        return parsed
+        return (gt.binary_path, parsed)
 
     for gt in gt_comps:
-        yield lambda: (gt.binary_path, single_gt(gt))
+        yield (
+            single_gt,
+            [
+                gt,
+            ],
+        )
 
 
 def all_prepare(r: runner.Runner, conf: BenchmarkConfiguration) -> PreparationResult:
     benchmark_choices, compilations, ground_truth_compilations = prepare_compilation(
         conf
     )
-    compilation_tasks = map(
-        lambda c: lambda: compat.compile(c),
-        compilations.values(),
-    )
+    # print(ground_truth_compilations.values())
+    print([c.binary_path for c in ground_truth_compilations.values()])
+    compilation_tasks = [
+        (
+            compat.compile,
+            [
+                c,
+            ],
+        )
+        for c in compilations.values()
+    ]
     all_jobs = r.run_tasks(
-        itertools.chain(
-            compilation_tasks,
-            compile_run_ground_truth(ground_truth_compilations.values()),
+        list(
+            itertools.chain(
+                compilation_tasks,
+                compile_run_ground_truth(ground_truth_compilations.values()),
+            )
         )
     )
     ground_truth_results: dict[Path, ParsedOutputData] = dict(
         itertools.islice(all_jobs, len(compilations), None)
     )
+    print(ground_truth_results)
     prep = PreparationResult(
         benchmark_choices,
         compilations,

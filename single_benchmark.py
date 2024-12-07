@@ -13,11 +13,13 @@ from structures import *
 def lowlevel_run(
     arg_maker: Callable[[], List[str]],
     env_maker: Callable[[dict[str, str]], dict[str, str]],
+    user_msg_fstr: str = "Running benchmark with args {joined_args}",
 ) -> RawResult:
     external_env = dict(os.environ)
     args = arg_maker()
     env = env_maker(external_env)
-    print(f"Running benchmark with args {' '.join(args)}")
+    joined_args = " ".join(args)
+    print(user_msg_fstr.format(**locals()))
     process = subprocess.Popen(
         args,
         env=env,
@@ -98,8 +100,14 @@ def run_benchmark(b: SingleBenchmark, prep: PreparationResult) -> ProcessedResul
 
     res = ProcessedResult()
 
-    if prep.save_raw_outputs:
+    if raw_res.exit_code != 0 or prep.save_raw_outputs:
         res.raw_result = raw_res
+
+    if raw_res.exit_code != 0:
+        print(
+            b.compile_settings.binary_path, "failed with exit code", raw_res.exit_code
+        )
+        return res
 
     res.timings, data_output = parse_run_output(
         raw_res,

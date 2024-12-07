@@ -1,7 +1,10 @@
+from argparse import ArgumentParser
 from dataclasses import asdict, dataclass
-import pprint
+import json
 import random
 from typing import List
+
+import marshmallow_dataclass
 import preparation
 import runner
 import single_benchmark
@@ -65,320 +68,26 @@ class BenchmarkRunner:
 if __name__ == "__main__":
     # So far you start the program by copying the output of gen_benchmark_config.py in place of BenchmarkConfiguration here.
     # In future you have the option of loading this configuration from a JSON file.
-    br = BenchmarkRunner(
-        BenchmarkConfiguration(
-            benchmarks={
-                "adi": {
-                    "mpi_1": [
-                        VariantConfiguration(
-                            compile_options=VariantCompilationOptions(
-                                extra_defines={"N2": "10", "TSTEPS": "10"},
-                                human_readable_output=False,
-                                disable_checking=False,
-                            ),
-                            run_options=[
-                                SubvariantRunOptions(subvariant_name=None, threads=1),
-                                SubvariantRunOptions(subvariant_name=None, threads=2),
-                            ],
-                            variant_name="second " "variant " "name",
-                        ),
-                        VariantConfiguration(
-                            compile_options=VariantCompilationOptions(
-                                extra_defines={"N2": "10", "TSTEPS": "11"},
-                                human_readable_output=False,
-                                disable_checking=False,
-                            ),
-                            run_options=[
-                                SubvariantRunOptions(subvariant_name=None, threads=1),
-                                SubvariantRunOptions(subvariant_name=None, threads=2),
-                            ],
-                            variant_name="second " "variant " "name",
-                        ),
-                        VariantConfiguration(
-                            compile_options=VariantCompilationOptions(
-                                extra_defines={"N2": "10", "TSTEPS": "12"},
-                                human_readable_output=False,
-                                disable_checking=False,
-                            ),
-                            run_options=[
-                                SubvariantRunOptions(subvariant_name=None, threads=1),
-                                SubvariantRunOptions(subvariant_name=None, threads=2),
-                            ],
-                            variant_name="second " "variant " "name",
-                        ),
-                        VariantConfiguration(
-                            compile_options=VariantCompilationOptions(
-                                extra_defines={"N2": "10", "TSTEPS": "13"},
-                                human_readable_output=False,
-                                disable_checking=False,
-                            ),
-                            run_options=[
-                                SubvariantRunOptions(subvariant_name=None, threads=1),
-                                SubvariantRunOptions(subvariant_name=None, threads=2),
-                            ],
-                            variant_name="second " "variant " "name",
-                        ),
-                        VariantConfiguration(
-                            compile_options=VariantCompilationOptions(
-                                extra_defines={"N2": "10", "TSTEPS": "14"},
-                                human_readable_output=False,
-                                disable_checking=False,
-                            ),
-                            run_options=[
-                                SubvariantRunOptions(subvariant_name=None, threads=1),
-                                SubvariantRunOptions(subvariant_name=None, threads=2),
-                            ],
-                            variant_name="second " "variant " "name",
-                        ),
-                        VariantConfiguration(
-                            compile_options=VariantCompilationOptions(
-                                extra_defines={"N2": "11", "TSTEPS": "10"},
-                                human_readable_output=False,
-                                disable_checking=False,
-                            ),
-                            run_options=[
-                                SubvariantRunOptions(subvariant_name=None, threads=1),
-                                SubvariantRunOptions(subvariant_name=None, threads=2),
-                            ],
-                            variant_name="second " "variant " "name",
-                        ),
-                        VariantConfiguration(
-                            compile_options=VariantCompilationOptions(
-                                extra_defines={"N2": "11", "TSTEPS": "11"},
-                                human_readable_output=False,
-                                disable_checking=False,
-                            ),
-                            run_options=[
-                                SubvariantRunOptions(subvariant_name=None, threads=1),
-                                SubvariantRunOptions(subvariant_name=None, threads=2),
-                            ],
-                            variant_name="second " "variant " "name",
-                        ),
-                        VariantConfiguration(
-                            compile_options=VariantCompilationOptions(
-                                extra_defines={"N2": "11", "TSTEPS": "12"},
-                                human_readable_output=False,
-                                disable_checking=False,
-                            ),
-                            run_options=[
-                                SubvariantRunOptions(subvariant_name=None, threads=1),
-                                SubvariantRunOptions(subvariant_name=None, threads=2),
-                            ],
-                            variant_name="second " "variant " "name",
-                        ),
-                        VariantConfiguration(
-                            compile_options=VariantCompilationOptions(
-                                extra_defines={"N2": "11", "TSTEPS": "13"},
-                                human_readable_output=False,
-                                disable_checking=False,
-                            ),
-                            run_options=[
-                                SubvariantRunOptions(subvariant_name=None, threads=1),
-                                SubvariantRunOptions(subvariant_name=None, threads=2),
-                            ],
-                            variant_name="second " "variant " "name",
-                        ),
-                        VariantConfiguration(
-                            compile_options=VariantCompilationOptions(
-                                extra_defines={"N2": "11", "TSTEPS": "14"},
-                                human_readable_output=False,
-                                disable_checking=False,
-                            ),
-                            run_options=[
-                                SubvariantRunOptions(subvariant_name=None, threads=1),
-                                SubvariantRunOptions(subvariant_name=None, threads=2),
-                            ],
-                            variant_name="second " "variant " "name",
-                        ),
-                        VariantConfiguration(
-                            compile_options=VariantCompilationOptions(
-                                extra_defines={"N2": "12", "TSTEPS": "10"},
-                                human_readable_output=False,
-                                disable_checking=False,
-                            ),
-                            run_options=[
-                                SubvariantRunOptions(subvariant_name=None, threads=1),
-                                SubvariantRunOptions(subvariant_name=None, threads=2),
-                            ],
-                            variant_name="second " "variant " "name",
-                        ),
-                        VariantConfiguration(
-                            compile_options=VariantCompilationOptions(
-                                extra_defines={"N2": "12", "TSTEPS": "11"},
-                                human_readable_output=False,
-                                disable_checking=False,
-                            ),
-                            run_options=[
-                                SubvariantRunOptions(subvariant_name=None, threads=1),
-                                SubvariantRunOptions(subvariant_name=None, threads=2),
-                            ],
-                            variant_name="second " "variant " "name",
-                        ),
-                        VariantConfiguration(
-                            compile_options=VariantCompilationOptions(
-                                extra_defines={"N2": "12", "TSTEPS": "12"},
-                                human_readable_output=False,
-                                disable_checking=False,
-                            ),
-                            run_options=[
-                                SubvariantRunOptions(subvariant_name=None, threads=1),
-                                SubvariantRunOptions(subvariant_name=None, threads=2),
-                            ],
-                            variant_name="second " "variant " "name",
-                        ),
-                        VariantConfiguration(
-                            compile_options=VariantCompilationOptions(
-                                extra_defines={"N2": "12", "TSTEPS": "13"},
-                                human_readable_output=False,
-                                disable_checking=False,
-                            ),
-                            run_options=[
-                                SubvariantRunOptions(subvariant_name=None, threads=1),
-                                SubvariantRunOptions(subvariant_name=None, threads=2),
-                            ],
-                            variant_name="second " "variant " "name",
-                        ),
-                        VariantConfiguration(
-                            compile_options=VariantCompilationOptions(
-                                extra_defines={"N2": "12", "TSTEPS": "14"},
-                                human_readable_output=False,
-                                disable_checking=False,
-                            ),
-                            run_options=[
-                                SubvariantRunOptions(subvariant_name=None, threads=1),
-                                SubvariantRunOptions(subvariant_name=None, threads=2),
-                            ],
-                            variant_name="second " "variant " "name",
-                        ),
-                        VariantConfiguration(
-                            compile_options=VariantCompilationOptions(
-                                extra_defines={"N2": "13", "TSTEPS": "10"},
-                                human_readable_output=False,
-                                disable_checking=False,
-                            ),
-                            run_options=[
-                                SubvariantRunOptions(subvariant_name=None, threads=1),
-                                SubvariantRunOptions(subvariant_name=None, threads=2),
-                            ],
-                            variant_name="second " "variant " "name",
-                        ),
-                        VariantConfiguration(
-                            compile_options=VariantCompilationOptions(
-                                extra_defines={"N2": "13", "TSTEPS": "11"},
-                                human_readable_output=False,
-                                disable_checking=False,
-                            ),
-                            run_options=[
-                                SubvariantRunOptions(subvariant_name=None, threads=1),
-                                SubvariantRunOptions(subvariant_name=None, threads=2),
-                            ],
-                            variant_name="second " "variant " "name",
-                        ),
-                        VariantConfiguration(
-                            compile_options=VariantCompilationOptions(
-                                extra_defines={"N2": "13", "TSTEPS": "12"},
-                                human_readable_output=False,
-                                disable_checking=False,
-                            ),
-                            run_options=[
-                                SubvariantRunOptions(subvariant_name=None, threads=1),
-                                SubvariantRunOptions(subvariant_name=None, threads=2),
-                            ],
-                            variant_name="second " "variant " "name",
-                        ),
-                        VariantConfiguration(
-                            compile_options=VariantCompilationOptions(
-                                extra_defines={"N2": "13", "TSTEPS": "13"},
-                                human_readable_output=False,
-                                disable_checking=False,
-                            ),
-                            run_options=[
-                                SubvariantRunOptions(subvariant_name=None, threads=1),
-                                SubvariantRunOptions(subvariant_name=None, threads=2),
-                            ],
-                            variant_name="second " "variant " "name",
-                        ),
-                        VariantConfiguration(
-                            compile_options=VariantCompilationOptions(
-                                extra_defines={"N2": "13", "TSTEPS": "14"},
-                                human_readable_output=False,
-                                disable_checking=False,
-                            ),
-                            run_options=[
-                                SubvariantRunOptions(subvariant_name=None, threads=1),
-                                SubvariantRunOptions(subvariant_name=None, threads=2),
-                            ],
-                            variant_name="second " "variant " "name",
-                        ),
-                        VariantConfiguration(
-                            compile_options=VariantCompilationOptions(
-                                extra_defines={"N2": "14", "TSTEPS": "10"},
-                                human_readable_output=False,
-                                disable_checking=False,
-                            ),
-                            run_options=[
-                                SubvariantRunOptions(subvariant_name=None, threads=1),
-                                SubvariantRunOptions(subvariant_name=None, threads=2),
-                            ],
-                            variant_name="second " "variant " "name",
-                        ),
-                        VariantConfiguration(
-                            compile_options=VariantCompilationOptions(
-                                extra_defines={"N2": "14", "TSTEPS": "11"},
-                                human_readable_output=False,
-                                disable_checking=False,
-                            ),
-                            run_options=[
-                                SubvariantRunOptions(subvariant_name=None, threads=1),
-                                SubvariantRunOptions(subvariant_name=None, threads=2),
-                            ],
-                            variant_name="second " "variant " "name",
-                        ),
-                        VariantConfiguration(
-                            compile_options=VariantCompilationOptions(
-                                extra_defines={"N2": "14", "TSTEPS": "12"},
-                                human_readable_output=False,
-                                disable_checking=False,
-                            ),
-                            run_options=[
-                                SubvariantRunOptions(subvariant_name=None, threads=1),
-                                SubvariantRunOptions(subvariant_name=None, threads=2),
-                            ],
-                            variant_name="second " "variant " "name",
-                        ),
-                        VariantConfiguration(
-                            compile_options=VariantCompilationOptions(
-                                extra_defines={"N2": "14", "TSTEPS": "13"},
-                                human_readable_output=False,
-                                disable_checking=False,
-                            ),
-                            run_options=[
-                                SubvariantRunOptions(subvariant_name=None, threads=1),
-                                SubvariantRunOptions(subvariant_name=None, threads=2),
-                            ],
-                            variant_name="second " "variant " "name",
-                        ),
-                        VariantConfiguration(
-                            compile_options=VariantCompilationOptions(
-                                extra_defines={"N2": "14", "TSTEPS": "14"},
-                                human_readable_output=False,
-                                disable_checking=False,
-                            ),
-                            run_options=[
-                                SubvariantRunOptions(subvariant_name=None, threads=1),
-                                SubvariantRunOptions(subvariant_name=None, threads=2),
-                            ],
-                            variant_name="second " "variant " "name",
-                        ),
-                    ]
-                },
-                "gemver": {},
-            },
-            keep_going=True,
-            min_runs=10,
-            check_results_between_runs=True,
-            save_raw_outputs=False,
-            save_parsed_output_data=False,
-        )
+
+    parser = ArgumentParser(
+        description="Runs a set of benchmarks following a provided configuration."
     )
+
+    parser.add_argument(
+        "--config",
+        required=True,
+        help="A configuraion file in JSON format, normally generated by gen_benchmark_config.py",
+    )
+
+    args = parser.parse_args()
+
+    with open(args.config, "r") as f:
+        raw_benchmark_config = json.load(f)
+
+    benchmark_config_schema = marshmallow_dataclass.class_schema(
+        BenchmarkConfiguration
+    )()
+    bc = benchmark_config_schema.load(raw_benchmark_config)
+
+    br = BenchmarkRunner(bc)
     br.main_run()

@@ -48,6 +48,8 @@ RUN apt install --allow-unauthenticated -y \
     git \
     python3-numpy \
     python3-tabulate \
+    python3-marshmallow-dataclass \
+    python3-typeguard \
     file \
     mypy \
     clang-format \

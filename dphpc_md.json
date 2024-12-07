@@ -10,7 +10,8 @@
                     "subvariant_name": "default subvariant name"
                 }
             ],
-            "variant_name": "default variant name"
+            "variant_name": "default variant name",
+            "compile_options":{}
         }
     ]
 }

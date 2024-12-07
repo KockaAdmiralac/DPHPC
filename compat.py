@@ -181,9 +181,9 @@ def prepare_single_compilation(
         "-O3",
         "-o",
         str(bin_path),
-        *includes_args,
-        *defines_args,
-        *extra_options,
+        *map(str, includes_args),
+        *map(str, defines_args),
+        *map(str, extra_options),
     ] + list(map(str, compunits))
     if scheme == "cuda":
         args.extend(
@@ -196,6 +196,8 @@ def prepare_single_compilation(
         args.extend(("-Wall", "-Wextra", "-ffast-math", "-march=native"))
     if scheme == "openmp":
         args.append("-fopenmp")
+
+    # print(args)
 
     return CompilationSettings(
         bin_path,
@@ -240,6 +242,7 @@ def compile(compsettings: CompilationSettings):
                 break
     if should_recompile:
         print("Recompiling " + str(bin_path))
+        print(" ".join(compsettings.compile_raw_args))
         subprocess.check_call(compsettings.compile_raw_args)
     else:
         print("Not recompiling " + str(bin_path))

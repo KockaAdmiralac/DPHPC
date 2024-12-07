@@ -4,14 +4,17 @@ import functools
 import json
 from pathlib import Path
 from typing import Any, Iterable, List, Literal, Optional
+
 from structures import *
+import marshmallow_dataclass
 
 
 DefaultOptions = Options()
 
 
 def options_from_file(fp: Path) -> Options:
-    ret = deepcopy(DefaultOptions)
+    options_schema = marshmallow_dataclass.class_schema(Options)()
+    ret = options_schema.dump(DefaultOptions)
     with open(fp, "r") as src:
         j = json.load(src)
         for param in Options.__dataclass_fields__:
@@ -25,11 +28,11 @@ def override_options(parent: Options, child: Options) -> Options:
     for param in Options.__dataclass_fields__:
         if child[param] is not None:
             if type(child[param]) == list:
-                ret[param] = child[param]
+                ret[param] = deepcopy(child[param])
             elif type(child[param]) == dict:
-                ret[param].update(child[param])
+                ret[param].update(deepcopy(child[param]))
             else:
-                ret[param] = child[param]
+                ret[param] = deepcopy(child[param])
     return ret
 
 

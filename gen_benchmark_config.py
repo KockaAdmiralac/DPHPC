@@ -1,11 +1,12 @@
 from argparse import Action, ArgumentParser, Namespace
 import argparse
 import copy
+import json
+import sys
 
 import marshmallow_dataclass
 from structures import *
 import compat
-import options
 
 
 def get_template_benchmark_config(args: Namespace) -> BenchmarkConfiguration:
@@ -95,7 +96,7 @@ def bc_inject_args(
                         and sweep["compile_variant_name"]
                         in (var_conf.variant_name, "*")
                     ):
-                        for val in range(sweep["min"], sweep["max"]):
+                        for val in range(sweep["min"], sweep["max"] + 1):
                             new_var_conf = copy.deepcopy(var_conf)
                             new_var_conf.compile_options.extra_defines[
                                 sweep["name"]
@@ -116,7 +117,8 @@ class SplitIntArgs(Action):
 
 
 class OptionsSetter(argparse._AppendAction):
-    def __call__(self, parser, namespace, values, option_string=None):
+    def __call__(self, parser, namespace, raw_val, option_string=None):
+        values = raw_val.split(",")
         # values should look like benchmark variant action item1 item2
         if len(values) < 4:
             raise argparse.ArgumentError(
@@ -142,19 +144,24 @@ class OptionsSetter(argparse._AppendAction):
 
 
 class SweepProcessor(argparse._AppendAction):
-    def __call__(self, parser, namespace, values, option_string=None):
+    def __call__(self, parser, namespace, raw_str, option_string=None):
         # values should look like benchmark variant compilevariantname name min max
+        values = raw_str.split(",")
         if len(values) != 6:
             raise argparse.ArgumentError(
                 self,
                 "Must pass all arguments",
             )
         if not values[4].isdigit() or not values[5].isdigit():
-            raise argparse.ArgumentError("min and max must be integers")
+            raise argparse.ArgumentError(
+                "--sweep-defines", "min and max must be integers"
+            )
         min_int = int(values[4])
         max_int = int(values[5])
         if min_int > max_int:
-            raise argparse.ArgumentError("Can't have min value be higher than max")
+            raise argparse.ArgumentError(
+                "--sweep-defines", "Can't have min value be higher than max"
+            )
 
         items = getattr(namespace, self.dest, None)
         items = argparse._copy_items(items)
@@ -216,16 +223,14 @@ if __name__ == "__main__":
 
     parser.add_argument(
         "--extra-defines",
-        help="""Replace/add extra defines for one or more benchmarks/variants.  Specify as "benchmark variant action item1=val1 item2=", where benchmark and variant can be * for wildcard, action is add/replace and the items are to go in the dict (=-separated)""",
-        nargs="+",
+        help="""Replace/add extra defines for one or more benchmarks/variants.  Specify as "benchmark,variant,action,item1=val1,item2=", where benchmark and variant can be * for wildcard, action is add/replace and the items are to go in the dict (=-separated)""",
         default=[],
         action=OptionsSetter,
     )
 
     parser.add_argument(
         "--sweep-define",
-        help="""Sweep a preprocessor definition.  Specify as "benchmark variant compilevariantname name min max", where benchmark and variant can be * for wildcard, compilevariantname is the name of a particular compilation or *, name is the preprocessor definition, min/max are the range to sweep over""",
-        nargs="+",
+        help="""Sweep a preprocessor definition.  Specify as "benchmark,variant,compilevariantname,name,min,max", where benchmark and variant can be * for wildcard, compilevariantname is the name of a particular compilation or *, name is the preprocessor definition, min/max are the range to sweep over""",
         default=[],
         action=SweepProcessor,
     )
@@ -249,8 +254,24 @@ if __name__ == "__main__":
         help="Save parsed output data beyond the scope of one run.  Necessary if you want to do all checking after all runs have completed.",
     )
 
+    parser.add_argument(
+        "config_file",
+        nargs="?",
+        help="Where to write the configuration to, optional and if not specified it dumps to stdout.",
+    )
+
     args = parser.parse_args()
     template_bc = get_template_benchmark_config(args)
-    pprint.pprint(bc_inject_args(args, template_bc))
+    bc = bc_inject_args(args, template_bc)
+    bc.generated_by = " ".join(sys.argv)
+    if args.config_file is None:
+        pprint.pprint(bc)
+    else:
+        benchmark_config_schema = marshmallow_dataclass.class_schema(
+            BenchmarkConfiguration
+        )()
+        py_obj = benchmark_config_schema.dump(bc)
+        with open(args.config_file, "w+") as f:
+            json.dump(py_obj, f, indent=4)
 
 # Example run: python3 gen_benchmark_config.py --benchmark adi mpi_1 --benchmark gemver --keep-going --min-runs 10 --threads 1,2 --sweep-define \* \* \* N2 10 15 --sweep-define adi \* \* TSTEPS 10 15 --no-check-results-between-runs
