@@ -2,10 +2,11 @@ from itertools import starmap
 import struct
 import numpy as np
 from typing import Literal, Optional
+import marshmallow_numpy
 
 import argparse
 
-ParsedOutputData = dict[str, np.ndarray]
+ParsedOutputData = dict[str, marshmallow_numpy.NumpyArray]
 
 
 def parsed_output_data_to_py(i: ParsedOutputData) -> dict[str, list[float]]:

@@ -1,7 +1,6 @@
-from dataclasses import asdict, dataclass, field, fields
+from dataclasses import dataclass, field
 from pathlib import Path
-import pprint
-from typing import Any, List, Literal, Optional, Tuple
+from typing import Any, List, Literal, Optional
 
 import marshmallow
 import numpy as np
@@ -11,6 +10,14 @@ valid_benchmark = Literal["adi", "gemver"]
 ParallelisationScheme = Literal["serial", "openmp", "mpi", "cuda"]
 
 DefinesConstraints = list[dict[str, int | str]]
+
+
+class PathField(marshmallow.fields.Field):
+    def _serialize(self, value, attr, obj, **kwargs):
+        return str(value)
+
+    def _deserialize(self, value, attr, data, **kwargs):
+        return Path(value)
 
 
 @dataclass
@@ -71,15 +78,19 @@ class Options:
 
 @dataclass
 class CompilationSettings:
-    binary_path: Path
-    include_dirs: List[Path]
     scheme: ParallelisationScheme
     all_defines: dict[str, str]
     defines_in_bin_path: dict[str, str]
-    source_files: List[Path]
     compile_raw_args: List[str]
     dphpc_opts: Options
     orig_options: VariantCompilationOptions
+    binary_path: Path = field(metadata=dict(marshmallow_field=PathField()))
+    include_dirs: List[Path] = field(
+        metadata=dict(marshmallow_field=marshmallow.fields.List(PathField()))
+    )
+    source_files: List[Path] = field(
+        metadata=dict(marshmallow_field=marshmallow.fields.List(PathField()))
+    )
 
 
 @dataclass
@@ -93,6 +104,7 @@ class BenchmarkConfiguration:
     check_results_between_runs: bool
     save_raw_outputs: bool
     save_parsed_output_data: bool
+    save_deviations: bool
     generated_by: Optional[str] = None
 
 
@@ -101,7 +113,7 @@ class SingleBenchmark:
     variant_config: VariantConfiguration
     run_options: SubvariantRunOptions
     compile_settings: CompilationSettings
-    ground_truth_bin_path: Path
+    ground_truth_bin_path: Path = field(metadata=dict(marshmallow_field=PathField()))
 
 
 @dataclass
@@ -114,6 +126,7 @@ class PreparationResult:
     check_results_between_runs: bool
     save_raw_outputs: bool
     save_parsed_output_data: bool
+    save_deviations: bool
 
 
 @dataclass
@@ -125,9 +138,10 @@ class RawResult:
 
 @dataclass
 class ProcessedResult:
+    referenced_run: SingleBenchmark
     raw_result: Optional[RawResult] = None
     output_data: Optional[ParsedOutputData] = None
     timings: dict[str, float] = field(default_factory=lambda: {})
     data_checked: bool = False
     data_valid: Optional[bool] = None
-    deviations: np.ndarray = field(default_factory=lambda: np.empty((1,)))
+    deviations: List[float] = field(default_factory=lambda: [])

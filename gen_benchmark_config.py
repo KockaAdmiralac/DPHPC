@@ -17,6 +17,7 @@ def get_template_benchmark_config(args: Namespace) -> BenchmarkConfiguration:
         args.check_results_between_runs,
         args.save_raw_outputs,
         args.save_parsed_output_data,
+        args.save_deviations,
     )
     variant_configuration_schema = marshmallow_dataclass.class_schema(
         VariantConfiguration
@@ -252,6 +253,12 @@ if __name__ == "__main__":
         "--save-parsed-output-data",
         action="store_true",
         help="Save parsed output data beyond the scope of one run.  Necessary if you want to do all checking after all runs have completed.",
+    )
+
+    parser.add_argument(
+        "--save-deviations",
+        action="store_true",
+        help="Save info about deviations for each output data value.",
     )
 
     parser.add_argument(

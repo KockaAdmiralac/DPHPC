@@ -3,7 +3,7 @@ import copy
 import os
 from shutil import which
 import subprocess
-from typing import List
+from typing import List, Tuple
 
 import numpy as np
 import datacheck
@@ -98,7 +98,7 @@ def run_benchmark(b: SingleBenchmark, prep: PreparationResult) -> ProcessedResul
 
     raw_res = lowlevel_run(arg_maker, env_maker)
 
-    res = ProcessedResult()
+    res = ProcessedResult(referenced_run=b)
 
     if raw_res.exit_code != 0 or prep.save_raw_outputs:
         res.raw_result = raw_res
@@ -119,9 +119,13 @@ def run_benchmark(b: SingleBenchmark, prep: PreparationResult) -> ProcessedResul
         res.output_data = data_output
 
     if not b.variant_config.compile_options.disable_checking:
-        res.data_valid, res.deviations = check_results_or_log_failure(
+        res.data_valid, temp_dev = check_results_or_log_failure(
             b, prep.ground_truth_results[b.ground_truth_bin_path], data_output
         )
+
+        if prep.save_deviations:
+            res.deviations = temp_dev.ravel().tolist()
+        # gives lots of normally useless data
 
         res.data_checked = True
     return res

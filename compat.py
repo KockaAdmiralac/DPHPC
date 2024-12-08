@@ -200,15 +200,15 @@ def prepare_single_compilation(
     # print(args)
 
     return CompilationSettings(
+        scheme,
+        merged_defines,
+        user_options.extra_defines,
+        args,
+        dphpc_opts,
+        user_options,
         bin_path,
-        include_dirs=includes,
-        scheme=scheme,
-        defines_in_bin_path=user_options.extra_defines,
-        all_defines=merged_defines,
+        includes,
         source_files=compunits,
-        compile_raw_args=args,
-        dphpc_opts=dphpc_opts,
-        orig_options=user_options,
     )
 
 

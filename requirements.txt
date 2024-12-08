@@ -3,3 +3,5 @@ numpy
 tabulate==0.9.0
 pyright==1.1.387
 marshmallow-dataclass
+typeguard
+marshmallow_numpy

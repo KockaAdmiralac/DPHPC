@@ -58,6 +58,8 @@ RUN apt install --allow-unauthenticated -y \
     apt-file && \
     apt-file update
 
+RUN python3 -m pip install --break-system-packages marshmallow_numpy
+
 ENV OMPI_ALLOW_RUN_AS_ROOT=1
 ENV OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
 
