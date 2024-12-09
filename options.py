@@ -14,13 +14,14 @@ DefaultOptions = Options()
 
 def options_from_file(fp: Path) -> Options:
     options_schema = marshmallow_dataclass.class_schema(Options)()
-    ret = options_schema.dump(DefaultOptions)
+    ret: dict[str, Any] = options_schema.dump(DefaultOptions)  # type: ignore
     with open(fp, "r") as src:
         j = json.load(src)
         for param in Options.__dataclass_fields__:
             if param in j:
                 ret[param] = j[param]
-    return ret
+    ret2: Options = options_schema.load(ret)  # type: ignore
+    return ret2
 
 
 def override_options(parent: Options, child: Options) -> Options:

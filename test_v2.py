@@ -108,7 +108,7 @@ if __name__ == "__main__":
     benchmark_config_schema = marshmallow_dataclass.class_schema(
         BenchmarkConfiguration
     )()
-    bc = benchmark_config_schema.load(raw_benchmark_config)
+    bc: BenchmarkConfiguration = benchmark_config_schema.load(raw_benchmark_config)  # type: ignore
 
     br = BenchmarkRunner(bc)
     br.main_run(args)

@@ -29,9 +29,7 @@ def get_template_benchmark_config(args: Namespace) -> BenchmarkConfiguration:
             template_bc.benchmarks[benchmark] = {}
         for variant in benchmark_arg[1:]:
             opt = compat.load_options(benchmark, variant)
-            template_bc.benchmarks[benchmark][variant] = [
-                variant_configuration_schema.load(c) for c in opt.variant_configurations
-            ]
+            template_bc.benchmarks[benchmark][variant] = opt.variant_configurations
     return template_bc
 
 
@@ -133,7 +131,7 @@ class OptionsSetter(argparse._AppendAction):
             )
         vals_to_write = values[3:]
         items = getattr(namespace, self.dest, None)
-        items = argparse._copy_items(items)
+        items = argparse._copy_items(items)  # type: ignore
         items.append(
             {
                 "benchmark": values[0],
@@ -155,18 +153,16 @@ class SweepProcessor(argparse._AppendAction):
                 "Must pass all arguments",
             )
         if not values[4].isdigit() or not values[5].isdigit():
-            raise argparse.ArgumentError(
-                "--sweep-defines", "min and max must be integers"
-            )
+            raise argparse.ArgumentError(self, "min and max must be integers")
         min_int = int(values[4])
         max_int = int(values[5])
         if min_int > max_int:
             raise argparse.ArgumentError(
-                "--sweep-defines", "Can't have min value be higher than max"
+                self, "Can't have min value be higher than max"
             )
 
         items = getattr(namespace, self.dest, None)
-        items = argparse._copy_items(items)
+        items = argparse._copy_items(items)  # type: ignore
         items.append(
             {
                 "benchmark": values[0],

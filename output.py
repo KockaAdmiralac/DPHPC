@@ -16,7 +16,8 @@ def load_results(results_file: Path) -> List[ProcessedResult]:
     with open(results_file, "r") as f:
         results_pyobj = json.load(f)
 
-    return list(map(procres_schema.load, results_pyobj))
+    ret: List[ProcessedResult] = list(map(procres_schema.load, results_pyobj))  # type: ignore
+    return ret
 
 
 def keep_valid_runs(results: Iterable[ProcessedResult]) -> Iterable[ProcessedResult]:

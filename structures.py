@@ -44,7 +44,7 @@ class VariantConfiguration:
     compile_options: VariantCompilationOptions
     run_options: List[SubvariantRunOptions] = field(
         default_factory=lambda: [],
-        metadata={"validate": marshmallow.validate.Length(min=1)},
+        metadata={"validate": marshmallow.validate.Length(min=1)},  # type: ignore
     )
     variant_name: Optional[str] = None
 
@@ -121,7 +121,7 @@ class SingleBenchmark:
 @dataclass
 class PreparationResult:
     benchmark_choices: List[SingleBenchmark]
-    compilations: dict[str, CompilationSettings]
+    compilations: dict[Path, CompilationSettings]
     must_completes: List[SingleBenchmark]  # should be indices of benchmark_choices
     ground_truth_results: dict[Path, ParsedOutputData]
     keep_going: bool  # whether or not to continue after must completes
