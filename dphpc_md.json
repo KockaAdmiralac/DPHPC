@@ -1,7 +1,8 @@
 {
     "defines": {
         "POLYBENCH_TIME": "",
-        "POLYBENCH_DUMP_ARRAYS": ""
+        "POLYBENCH_DUMP_ARRAYS": "",
+        "TESTPY": ""
     },
     "variant_configurations": [
         {

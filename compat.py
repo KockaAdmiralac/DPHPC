@@ -245,4 +245,5 @@ def compile(compsettings: CompilationSettings):
         print(" ".join(compsettings.compile_raw_args))
         subprocess.check_call(compsettings.compile_raw_args)
     else:
-        print("Not recompiling " + str(bin_path))
+        # print("Not recompiling " + str(bin_path))
+        pass  # Change me back if your terminal is big enough

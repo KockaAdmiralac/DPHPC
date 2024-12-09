@@ -5,7 +5,9 @@
 #include <mpi.h>
 
 /* Include benchmark-specific header. */
+#ifndef TESTPY
 #include <caliper/cali.h>
+#endif
 #include <math.h>
 #include <stdio.h>
 #include <string.h>
@@ -175,7 +177,9 @@ void kernel_gemver(int n, DATA_TYPE alpha, DATA_TYPE beta, DATA_TYPE POLYBENCH_2
                    DATA_TYPE POLYBENCH_1D(u2, N2, n), DATA_TYPE POLYBENCH_1D(v2, N2, n),
                    DATA_TYPE POLYBENCH_1D(w, N2, n), DATA_TYPE POLYBENCH_1D(x, N2, n), DATA_TYPE POLYBENCH_1D(y, N2, n),
                    DATA_TYPE POLYBENCH_1D(z, N2, n)) {
+#ifndef TESTPY
     // cali_begin_region("kernel");
+#endif
 
     /*
     calculate  A = A + u1*v1 + u2*v2
@@ -220,7 +224,9 @@ void kernel_gemver(int n, DATA_TYPE alpha, DATA_TYPE beta, DATA_TYPE POLYBENCH_2
     // combine all process w to the main w in process 0
     MPI_Reduce(process_w, w, n, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
 
+#ifndef TESTPY
     // cali_end_region("kernel");
+#endif
 
     POLYBENCH_FREE_ARRAY(process_v2);
     POLYBENCH_FREE_ARRAY(process_v1);

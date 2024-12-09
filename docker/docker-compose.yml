@@ -1,5 +1,6 @@
 services:
   dphpc-cuda:
+    image: paolo_custom/dphpc_cuda:24.04
     build:
       context: .
     hostname: dphpc.celati.com
@@ -16,3 +17,4 @@ services:
     volumes:
     - ./../:/project
     - /var/run/docker.sock:/var/run/docker.sock
+    - /storage/bulk2024b/dphpc_results:/storage/bulk2024b/dphpc_results

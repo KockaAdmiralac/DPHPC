@@ -19,6 +19,8 @@ def get_template_benchmark_config(args: Namespace) -> BenchmarkConfiguration:
         args.save_raw_outputs,
         args.save_parsed_output_data,
         args.save_deviations,
+        generated_by=" ".join(sys.argv),
+        ground_truths_dir=args.ground_truths_dir,
     )
     variant_configuration_schema = marshmallow_dataclass.class_schema(
         VariantConfiguration
@@ -295,6 +297,11 @@ if __name__ == "__main__":
     )
 
     parser.add_argument(
+        "--ground-truths-dir",
+        help="Where to keep ground truth data.",
+    )
+
+    parser.add_argument(
         "config_file",
         default=None,
         help="Where to write the configuration to, optional and if not specified it dumps to stdout.",
@@ -303,7 +310,6 @@ if __name__ == "__main__":
     args = parser.parse_args()
     template_bc = get_template_benchmark_config(args)
     bc = bc_inject_args(args, template_bc)
-    bc.generated_by = " ".join(sys.argv)
     if args.config_file is None:
         pprint.pprint(bc)
     else:

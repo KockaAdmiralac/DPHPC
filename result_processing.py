@@ -1,4 +1,4 @@
-from typing import Iterable, List, Tuple
+from typing import Any, Iterable, List, Tuple
 
 from numpy import ndarray
 import numpy
@@ -13,7 +13,7 @@ PreprocessedResults = List[PreprocessedResultPair]
 
 def get_ci(
     data: ndarray,
-    statistic: str,
+    statistic: Any,
     n_resamples: int = 1000,
     confidence_level: float = 0.95,
 ):

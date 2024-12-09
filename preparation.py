@@ -1,5 +1,6 @@
 from collections.abc import Callable
 import itertools
+import os
 from pathlib import Path
 import random
 from typing import Iterable, List, Tuple
@@ -49,13 +50,18 @@ def prepare_compilation(conf: BenchmarkConfiguration):
     return (benchmark_choices, compilations, ground_truth_compilations)
 
 
-ground_truth_run_func = Callable[[CompilationSettings], Tuple[Path, ParsedOutputData]]
+ground_truth_run_func = Callable[[CompilationSettings], Tuple[Path, GroundTruthData]]
 
 
 def compile_run_ground_truth(
-    gt_comps: Iterable[CompilationSettings],
+    gt_comps: Iterable[CompilationSettings], ground_truths_dir: Optional[Path] = None
 ) -> Iterable[Tuple[ground_truth_run_func, List[CompilationSettings]]]:
-    def single_gt(gt: CompilationSettings) -> Tuple[Path, ParsedOutputData]:
+    def single_gt(gt: CompilationSettings) -> Tuple[Path, GroundTruthData]:
+        if ground_truths_dir is not None:
+            os.makedirs(ground_truths_dir, exist_ok=True)
+            ground_truth_path = ground_truths_dir / str(gt.binary_path).replace("/", "")
+            if ground_truth_path.exists():
+                return (gt.binary_path, ground_truth_path)
         compat.compile(gt)
         raw_res = single_benchmark.lowlevel_run(
             lambda: [
@@ -67,9 +73,15 @@ def compile_run_ground_truth(
         assert (
             raw_res.exit_code == 0
         ), f"Ground truth failed to run, for binary {gt.binary_path} got exit code {raw_res.exit_code}"
-        parsed = datacheck.parse_dump_to_arrays(
-            raw_res.raw_stderr, is_human_readable=gt.orig_options.human_readable_output
-        )
+        if ground_truths_dir is not None:
+            with open(ground_truth_path, "wb+") as f:
+                f.write(raw_res.raw_stderr)
+            parsed = ground_truth_path
+        else:
+            parsed = datacheck.parse_dump_to_arrays(
+                raw_res.raw_stderr,
+                is_human_readable=gt.orig_options.human_readable_output,
+            )
         return (gt.binary_path, parsed)
 
     for gt in gt_comps:
@@ -98,11 +110,13 @@ def all_prepare(r: runner.Runner, conf: BenchmarkConfiguration) -> PreparationRe
         list(
             itertools.chain(
                 compilation_tasks,
-                compile_run_ground_truth(ground_truth_compilations.values()),
+                compile_run_ground_truth(
+                    ground_truth_compilations.values(), conf.ground_truths_dir
+                ),
             )
         )
     )
-    ground_truth_results: dict[Path, ParsedOutputData] = dict(
+    ground_truth_results: dict[Path, GroundTruthData] = dict(
         itertools.islice(all_jobs, len(compilations), None)
     )
     prep = PreparationResult(

@@ -55,8 +55,12 @@ def output_table(results: Iterable[result_processing.PreprocessedResultPair]) ->
                                 np.max(timings["kernel_time"]),
                                 np.median(timings["kernel_time"]),
                                 np.std(timings["kernel_time"]),
-                                result_processing.get_ci(
-                                    np.array(timings["kernel_time"]), np.mean
+                                (
+                                    result_processing.get_ci(
+                                        np.array(timings["kernel_time"]), np.mean
+                                    )
+                                    if len(timings["kernel_time"]) >= 2
+                                    else None
                                 ),
                                 len(timings["kernel_time"]),
                             )

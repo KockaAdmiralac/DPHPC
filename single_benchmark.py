@@ -119,8 +119,11 @@ def run_benchmark(b: SingleBenchmark, prep: PreparationResult) -> ProcessedResul
         res.output_data = data_output
 
     if not b.variant_config.compile_options.disable_checking:
+        gt_data = prep.ground_truth_results[b.ground_truth_bin_path]
+        if type(gt_data) != dict:
+            gt_data = datacheck.parse_dump_to_arrays(open(gt_data, "rb").read())
         res.data_valid, temp_dev = check_results_or_log_failure(
-            b, prep.ground_truth_results[b.ground_truth_bin_path], data_output  # type: ignore
+            b, gt_data, data_output  # type: ignore
         )
 
         if prep.save_deviations:

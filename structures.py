@@ -3,13 +3,14 @@ from pathlib import Path
 from typing import Any, List, Literal, Optional
 
 import marshmallow
-import numpy as np
 from datacheck import ParsedOutputData
 
 valid_benchmark = Literal["adi", "gemver"]
 ParallelisationScheme = Literal["serial", "openmp", "mpi", "cuda"]
 
 DefinesConstraints = list[dict[str, int | str]]
+
+GroundTruthData = ParsedOutputData | Path
 
 
 class PathField(marshmallow.fields.Field):
@@ -105,7 +106,10 @@ class BenchmarkConfiguration:
     save_raw_outputs: bool
     save_parsed_output_data: bool
     save_deviations: bool
-    generated_by: Optional[str] = None
+    generated_by: str
+    ground_truths_dir: Optional[Path] = field(
+        metadata=dict(marshmallow_field=PathField())
+    )
 
 
 @dataclass
@@ -123,7 +127,7 @@ class PreparationResult:
     benchmark_choices: List[SingleBenchmark]
     compilations: dict[Path, CompilationSettings]
     must_completes: List[SingleBenchmark]  # should be indices of benchmark_choices
-    ground_truth_results: dict[Path, ParsedOutputData]
+    ground_truth_results: dict[Path, GroundTruthData]
     keep_going: bool  # whether or not to continue after must completes
     check_results_between_runs: bool
     save_raw_outputs: bool
