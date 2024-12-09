@@ -37,6 +37,8 @@ def prepare_compilation(conf: BenchmarkConfiguration):
                 for run_subvariant in compile_variant.run_options:
                     benchmark_choices.append(
                         single_benchmark.SingleBenchmark(
+                            benchmark,
+                            variant,
                             compile_variant,
                             run_subvariant,
                             compsettings,

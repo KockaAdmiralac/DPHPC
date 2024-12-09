@@ -8,46 +8,81 @@ This project aims to parallelize [PolyBench](https://github.com/MatthiasJReising
 - [Luka Simić](https://kocka.tech/)
 
 ## Benchmark
-You can benchmark your code by using the `test.py` script. It can compile your code with the appropriate options, run it with the appropriate runtime, check whether its output is correct and compare it with other implementations. The most important options you can provide are:
+You can benchmark your code by using the `test_v2.py` script. It can compile your code with the appropriate options, run it with the appropriate runtime, check whether its output is correct and compare it with other implementations.
 
-- `--benchmark`: Which benchmark are you running (either `gemver` or `adi`)
-- `--variants`: Which variant of the benchmark are you running
-    - Variants are named starting with the type of parallelization performed in them: `serial`, `openmp`, `mpi` or `cuda`.
-        - Depending on this, your program will be compiled with the appropriate compiler, and run with the appropriate runtime.
-    - Example:
-        - You have developed an MPI parallelization of a benchmark with cache efficiency, and named it `mpi_cache_efficiency`.
-        - Your colleague has developed a parallelization of that benchmark using OpenMP's tasks, and named it `openmp_tasks`.
-        - You can compare the baseline, your parallelization and your colleague's parallelization with `--variant serial_base,openmp_tasks,mpi_cache_efficiency`.
-- `--threads`: Comma-separated list of how many threads should the benchmark be run in
-    - For example, `--threads 1,2,4,8` runs the benchmark with 1, 2, 4 and 8 threads.
-- `--runs`: How many times to run the benchmark and average the timing results
-    - When testing whether your benchmark works, you can pass a lower number here as checking whether your output data matches the ground truth can take some time.
-    - When testing only the performance of your code, you can pass a higher number together with the `--disable_checking` option to make the benchmark finish faster.
-- `--set_defines`: A comma-separated list of preprocessor defines to pass to the compiler
-    - For example, `--set_defines N2=12000` acts just like a `#define N2 12000` would. It increases the input size to 12000, so you can use this option to give larger input sizes while testing performance.
-    - Alternatively, you can specify one of `MINI_DATASET`, `SMALL_DATASET`, `MEDIUM_DATASET`, `LARGE_DATASET` and `EXTRALARGE_DATASET` using `--set_defines SMALL_DATASET=1` to set the relevant define which automatically determines the `N2` (and `TSTEPS`, for the `adi` benchmark) values.
+To run a benchmark campaign, test_v2 is split into `gen_benchmark_config.py`, `test_v2.py` and `output.py`.  You must first generate a benchmark configuration for `test_v2.py` to tell it what to run exactly.  This is done with `gen_benchmark_config.py`, which accepts most of the arguments for the original `test.py` but with a few changes.  It will save the benchmark configuration to a JSON file you specify.  Afterwards, run `test_v2.py`, passing it the file with the configuration.  If you give `test_v2.py` an output filepath it will save the results there.  If you provide the `--output` option and specify a valid `output.py` output format (currently graph/table), the results will also be output directly.  If you want to process multiple runs' results together you can run `output.py` and pass it `--from` one or more times to have it output multiple files' results.
 
-This is how an invocation of `test.py` might look like:
+### Generating a Benchmark Configuration
+To generate the benchmark configuration file you run `gen_benchmark_config.py`.  The program can make a single large configuration file for multiple benchmarks, multiple variants, multiple compilation configurations per variant (for sweeps of compile time preprocessor definitions for instance like N2 or block size) and multiple run configurations per compilation configuration (notably for running the same MPI/OpenMP binary with varying numbers of threads).  These are all represented in the `BenchmarkConfiguration` dataclass, which gets serialised and dumped to a JSON file.
+
+The configuration file is very verbose because it means `test_v2.py` needs to account for far less business logic, and you can make changes to the configuration file by hand if needed before running `test_v2.py` itself.  The latter can be useful especially if you have a small change where the configuration generator's interface is too coarse.
+
+The generator extends dphpc_md a little.  You can provide a `variant_configurations` key in `dphpc_md.json` to provide one or more variant configurations.  A variant configuration indicates how to compile the variant (with the `compile_options` key) and has one or more `run_options` to specify different ways to run the binary.  The `variant_name` in the variant configuration and `subvariant_name` in the run configuration are supposed to be display names for things like nicer graphs.  The configuration generator goes through `variant_configurations` and the child data to get defaults for each benchmark/variant.  `variant_configurations` is meant to be used to provide different configurations for the same variant without having to duplicate the code a bunch of times.  The toplevel `dphpc_md.json` already implements a basic default for running everything so the `dphpc_md.json` options don't need to be provided in the default case.
+
+The configuration generator supports:
+- `--benchmark <benchmark name> <variant 1> <variant 2> ...`: Which benchmark to run, and what variants of that benchmark.
+
+  Examples:
+  - `--benchmark adi serial_opt serial_block openmp_base --benchmark gemver mpi_cols cuda_improved6`
+  - `--benchmark gemver cuda_cublas serial_block_first_loop`
+- `--threads`: How many threads to test with for OpenMP/MPI, as a comma-separated list.
+- `--min-runs`: How many runs `test_v2.py` should run.  If `--keep-going` is provided, this specifies the minimum runs to perform for each configuration.  Every configuration will be run this many times before switching to random resampling.  The default is 1 run.
+- `--keep-going`: Useful when you have a good amount of time but are unsure how long you can allocate, specify this if you'd like `test_v2.py` to randomly resample configurations to get more trials for each.  Interrupt the benchmark run with Ctrl+C, wait for the program to finish running the current run and it will run the rest of the program like saving to a results file.  If this is not specified, `test_v2.py` will only run exactly as many runs as given by `--min-runs`.
+  
+  Example: `--keep-going --min-runs 5` will run five of each configuration, then will print the "must completes" are done and will switch to randomly sampling among the possible configurations and running those.  It will keep running until it gets Ctrl+C.
+- `--disable-checking`: Does what it says, provides `DISABLE_CHECKING` to everyone and does not check or save results.
+- `--human-readable-output`: Makes all configurations output data in human readable form.
+- `--extra-defines <benchmark>,<variant>,<action>,<name1>=<val1>,<name2>=,<name3>=<val3>,...`: Depending on `<action>` being `add` or `replace`, determines whether to add more preprocessor definitions or change existing preprocessor definitions.  Note this is processed before `--sweep-define`, so avoid specifying the same preprocessor definitions here and there.  `<benchmark>,<variant>` are used to filter which benchmarks and variants this should apply to.  Specify `*` if you want wildcard.
+
+  Example: `--extra-defines adi,*,add,BLOCK_SIZE=64` adds BLOCK_SIZE=64 to all adi variants
+- `--sweep-define <benchmark>,<variant>,<compilevariantname>,<name>,<min>,<max>`: Generates multiple compilation configurations, with the `<name>` preprocessor definition for each min<=x<=max (both inclusive).  `<benchmark>,<variant>,<compilevariantname>` are used to filter which benchmarks, variants and compilation configurations this should apply to.  Specify `*` if you want a wildcard.  Passing this optio multiple times will effectively iterate over the product of the passed options.
+
+  Example: `--sweep-define gemver,cuda_cublas,*,JS_IN_SM,1,8 --sweep-define *,*,N2,6,10` will make 5 versions of each configuration with N2 between 6 and 10, except gemver/cuda_cublas which will have 5x8=40 versions, iterating N2 between 6 and 10 and JS_IN_SM between 1 and 8
+- `--no-check-results-between-runs`: Not recommended.  Intended for being able to check results only after all runs' results have been collected, but this isn't implemented.  At the moment, checking is performed between runs instead.
+- `--save-raw-outputs`: Whether to store the raw stderr/stdout/exit code after each run.  By default this is not done because it needs lots of RAM.  A non-zero exit code will store the raw stderr/stdout/exit code even if this option is not provided.
+- `--save-parsed-output-data`: Whether to store the parsed data at the end of a run or not.  Normally this doesn't happen because it needs lots of RAM.
+- `--save-deviations`: Saves deviation data after a run, possibly useful data if we were to implement variants using lower precision floating point formats like fp32.  Normally this is not done because it needs lots of RAM, exactly as much as the data arrays themselves.
+-- `<config file>`: Where to dump the configuration to.  If not provided, the configuration is printed to the stdout.
+
+This is how an invocation of `gen_benchmark_config.py` might look like:
 ```console
-python3 test.py \
-    --benchmark gemver \
-    --variants serial_base,openmp_tasks,mpi_cache_efficiency \
+python3 gen_benchmark_config.py \
+    --benchmark gemver serial_base openmp_tasks mpi_cache_efficiency \
     --threads 1,2,4,8 \
-    --runs 100 \
+    --min-runs 100 \
     --disable_checking \
-    --set_defines N2=12000
+    --extra-defines *,*,add,N2=12000
 ```
 
-Another example, using `adi`:
+Examples using `adi`:
 ```console
-python3 test.py \
-    --benchmark adi \
-    --variants serial_base \
-    --runs 10 \
-    --set_defines SMALL_DATASET=1
+python3 gen_benchmark_config.py \
+    --benchmark adi serial_base \
+    --min-runs 10 \
+    --save-parsed-output-data \
+    --extra-defines *,*,replace,SMALL_DATASET=1
 ```
 
-You can read about the other options in `./test.py --help`.
+```console
+python3 gen_benchmark_config.py \
+    --benchmark adi serial_base mpi_1 openmp_block cuda_multithreaded5 \
+    --min-runs 10 \
+    --keep-going \
+    --threads 1,2,4,8
+    --disable-checking \
+    --extra-defines *,*,replace,SMALL_DATASET=1
+    --sweep-define *,*,*,TSTEPS,10,15
+```
+
+You can read about the other options in `./gen_benchmark_config.py --help`.
+
+### Running `test_v2.py`
+The only things to pass `test_v2.py` itself are the benchmark configuration file (`--config`), where to save results (`--results-output`) and the output format (`--output`).  Only the configuration file option is mandatory.  The program will go through the benchmark configuration file and run everything, then dump the results at the end.
+
+Example: `./test_v2.py --config config2.json --results-output results.json --output table`
+
+### Postprocessing and outputting data
+There's a third program called `output.py` that is useful when you have a good collection of results already and want to process the data and graph it.  You can pass `--output` to specify whether you want table or graph output (graph not yet implemented), and `--from` one or more times to indicate which files to load results from.
 
 ### Specialization
 Your code will sometimes need special options that `test.py` does not set. For this purpose, `test.py` reads files named `dphpc_md.json` at root level, benchmark level and variant level to determine which options should it use to compile the code. For example, if your benchmark is `gemver` and you are creating a variant named `openmp_tasks`, then `test.py` will read the following files:

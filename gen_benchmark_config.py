@@ -2,6 +2,7 @@ from argparse import Action, ArgumentParser, Namespace
 import argparse
 import copy
 import json
+import pprint
 import sys
 
 import marshmallow_dataclass
@@ -263,7 +264,7 @@ if __name__ == "__main__":
 
     parser.add_argument(
         "config_file",
-        nargs="?",
+        default=None,
         help="Where to write the configuration to, optional and if not specified it dumps to stdout.",
     )
 

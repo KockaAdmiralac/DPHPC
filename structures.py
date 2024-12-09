@@ -110,6 +110,8 @@ class BenchmarkConfiguration:
 
 @dataclass
 class SingleBenchmark:
+    benchmark: str
+    variant: str
     variant_config: VariantConfiguration
     run_options: SubvariantRunOptions
     compile_settings: CompilationSettings

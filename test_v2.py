@@ -4,6 +4,7 @@ import random
 from typing import List
 
 import marshmallow_dataclass
+import output
 import preparation
 import runner
 import single_benchmark
@@ -61,10 +62,16 @@ class BenchmarkRunner:
         r = runner.Runner()
         self.prep = preparation.all_prepare(r, self.benchmark_config)
         results = self.main_run_loop(r)
-        procres_schema = marshmallow_dataclass.class_schema(ProcessedResult)()
-        results_pyobj = list(map(procres_schema.dump, results))
-        with open(args.results_output, "w+") as f:
-            json.dump(results_pyobj, f, indent=4)
+        if args.results_output is not None:
+            procres_schema = marshmallow_dataclass.class_schema(ProcessedResult)()
+            results_pyobj = list(map(procres_schema.dump, results))
+            with open(args.results_output, "w+") as f:
+                json.dump(results_pyobj, f, indent=4)
+        if args.output is not None:
+            print(args.output)
+            preproc_results = output.preprocess_results(results)
+            output.run_output(preproc_results, args.output)
+        return results
 
 
 if __name__ == "__main__":
@@ -83,6 +90,14 @@ if __name__ == "__main__":
 
     parser.add_argument(
         "--results-output", help="Where to save the JSON list of ProcessedResults"
+    )
+
+    parser.add_argument(
+        "--output",
+        type=str,
+        choices=list(output.output_modes.keys()),
+        help="How you would like to output the results",
+        action="append",
     )
 
     args = parser.parse_args()
