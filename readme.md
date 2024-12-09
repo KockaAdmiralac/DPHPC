@@ -38,6 +38,9 @@ The configuration generator supports:
 - `--sweep-define <benchmark>,<variant>,<compilevariantname>,<name>,<min>,<max>`: Generates multiple compilation configurations, with the `<name>` preprocessor definition for each min<=x<=max (both inclusive).  `<benchmark>,<variant>,<compilevariantname>` are used to filter which benchmarks, variants and compilation configurations this should apply to.  Specify `*` if you want a wildcard.  Passing this optio multiple times will effectively iterate over the product of the passed options.
 
   Example: `--sweep-define gemver,cuda_cublas,*,JS_IN_SM,1,8 --sweep-define *,*,N2,6,10` will make 5 versions of each configuration with N2 between 6 and 10, except gemver/cuda_cublas which will have 5x8=40 versions, iterating N2 between 6 and 10 and JS_IN_SM between 1 and 8
+- `--multiple-define <benchmark>,<variant>,<compilervariantname>,<name>,<val1>,...`: Sweeps very much like `--sweep-define` but you provide the individual values you'd like.  Use this to specify N2 especially, possibly CUDA threads per block.
+
+  Example: `--multiple-define *,*,*,N2,70,80,100,150,200`
 - `--no-check-results-between-runs`: Not recommended.  Intended for being able to check results only after all runs' results have been collected, but this isn't implemented.  At the moment, checking is performed between runs instead.
 - `--save-raw-outputs`: Whether to store the raw stderr/stdout/exit code after each run.  By default this is not done because it needs lots of RAM.  A non-zero exit code will store the raw stderr/stdout/exit code even if this option is not provided.
 - `--save-parsed-output-data`: Whether to store the parsed data at the end of a run or not.  Normally this doesn't happen because it needs lots of RAM.

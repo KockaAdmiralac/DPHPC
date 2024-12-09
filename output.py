@@ -71,27 +71,35 @@ def output_table(results: Iterable[PreprocessedResultPair]) -> None:
     results_by_bm = itertools.groupby(sorted(results, key=bm_key), key=bm_key)
     for benchmark, bm_res in results_by_bm:
         print(f"For benchmark {benchmark}:")
-        print(
-            tabulate.tabulate(
-                sorted(
-                    [
-                        (
-                            sb.variant,
-                            sb.run_options.threads,
-                            np.mean(timings["kernel_time"]),
-                            np.min(timings["kernel_time"]),
-                            np.max(timings["kernel_time"]),
-                            np.median(timings["kernel_time"]),
-                            np.std(timings["kernel_time"]),
-                            len(timings["kernel_time"]),
-                        )
-                        for (sb, timings) in bm_res
-                    ],
-                    key=lambda row: list(row)[2],
-                ),
-                headers=header,
-            )
+        N2_key = lambda res: int(
+            res[0].variant_config.compile_options.extra_defines["N2"]
         )
+        results_by_N2 = itertools.groupby(sorted(bm_res, key=N2_key), key=N2_key)
+        for N2, N2_res in results_by_N2:
+            print(f"For N2={N2}:")
+            print(
+                tabulate.tabulate(
+                    sorted(
+                        [
+                            (
+                                sb.variant,
+                                sb.run_options.threads,
+                                np.mean(timings["kernel_time"]),
+                                np.min(timings["kernel_time"]),
+                                np.max(timings["kernel_time"]),
+                                np.median(timings["kernel_time"]),
+                                np.std(timings["kernel_time"]),
+                                len(timings["kernel_time"]),
+                            )
+                            for (sb, timings) in N2_res
+                        ],
+                        key=lambda row: list(row)[2],
+                    ),
+                    headers=header,
+                )
+            )
+            print()
+        print()
 
 
 def output_graphs(results: Iterable[PreprocessedResultPair]) -> None:

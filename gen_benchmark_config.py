@@ -96,7 +96,11 @@ def bc_inject_args(
                         and sweep["compile_variant_name"]
                         in (var_conf.variant_name, "*")
                     ):
-                        for val in range(sweep["min"], sweep["max"] + 1):
+                        if "values" in sweep:
+                            vals = sweep["values"]
+                        else:
+                            vals = map(str, range(sweep["min"], sweep["max"] + 1))
+                        for val in vals:
                             new_var_conf = copy.deepcopy(var_conf)
                             new_var_conf.compile_options.extra_defines[
                                 sweep["name"]
@@ -176,6 +180,30 @@ class SweepProcessor(argparse._AppendAction):
         setattr(namespace, self.dest, items)
 
 
+class SweepProcessor2(argparse._AppendAction):
+    def __call__(self, parser, namespace, raw_str, option_string=None):
+        # values should look like benchmark variant compilevariantname name min max
+        values = raw_str.split(",")
+        if len(values) < 5:
+            raise argparse.ArgumentError(
+                self,
+                "Must pass all arguments, at least one value",
+            )
+
+        items = getattr(namespace, self.dest, None)
+        items = argparse._copy_items(items)  # type: ignore
+        items.append(
+            {
+                "benchmark": values[0],
+                "variant": values[1],
+                "compile_variant_name": values[2],
+                "name": values[3],
+                "values": values[4:],
+            }
+        )
+        setattr(namespace, self.dest, items)
+
+
 if __name__ == "__main__":
     parser = ArgumentParser(
         description="Generator of BenchmarkConfiguration from dphpc_md.json files and old-style parameters"
@@ -231,6 +259,14 @@ if __name__ == "__main__":
         help="""Sweep a preprocessor definition.  Specify as "benchmark,variant,compilevariantname,name,min,max", where benchmark and variant can be * for wildcard, compilevariantname is the name of a particular compilation or *, name is the preprocessor definition, min/max are the range to sweep over""",
         default=[],
         action=SweepProcessor,
+    )
+
+    parser.add_argument(
+        "--multiple-define",
+        help="""Sweep a preprocessor definition across a provided set of values, mostly inteded for N2/TSTEPS.  Specify as "benchmark,variant,compilevariantname,name,val1,val2,...", where benchmark and variant can be * for wildcard, compilevariantname is the name of a particular compilation or *, name is the preprocessor definition, values are what to sweep over""",
+        default=[],
+        dest="sweep_define",
+        action=SweepProcessor2,
     )
 
     parser.add_argument(
