@@ -50,6 +50,7 @@ RUN apt install --allow-unauthenticated -y \
     python3-tabulate \
     python3-marshmallow-dataclass \
     python3-typeguard \
+    python3-scipy \
     file \
     mypy \
     clang-format \

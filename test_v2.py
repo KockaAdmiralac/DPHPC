@@ -9,6 +9,7 @@ import preparation
 import runner
 import single_benchmark
 from structures import *
+import result_processing
 
 
 class BenchmarkRunner:
@@ -17,24 +18,95 @@ class BenchmarkRunner:
     benchmark_config: BenchmarkConfiguration
     prep: PreparationResult
     notified_finished_must_completes: bool = False
+    results: List[ProcessedResult] = []
+    ci_not_yet_tight: List[SingleBenchmark] = []
+    notified_finished_all_cis: bool = False
 
     def __init__(self, benchmark_config: BenchmarkConfiguration) -> None:
         self.benchmark_config = benchmark_config
 
     def select_next_benchmark(self) -> SingleBenchmark | None:
+        grouped_by_sb = result_processing.group_runs(self.results)
         if len(self.prep.must_completes):
             idx = random.randint(0, len(self.prep.must_completes) - 1)
             item = self.prep.must_completes[idx]
+            prior_runs = self.get_runs_by(grouped_by_sb, item)
             del self.prep.must_completes[idx]
+            times_ran = len(prior_runs["kernel_time"]) if prior_runs is not None else 0
+            print(f"Ran {times_ran} times so far")
             return item
 
         if not self.notified_finished_must_completes:
             print("Completed minimum required runs")
             self.notified_finished_must_completes = True
+
+        # If I'm to follow the CI tightness requirement then sample from among these
+        if self.prep.also_require_ci:
+            while True:
+                if (
+                    not len(self.ci_not_yet_tight)
+                    and not self.notified_finished_all_cis
+                ):
+                    print("All benchmarks have satisfactory CIs")
+                    self.notified_finished_all_cis = True
+                    break
+                elif self.notified_finished_all_cis:
+                    break
+                else:
+                    candidate_sb = random.choice(self.ci_not_yet_tight)
+                    existing_runs = self.get_runs_by(grouped_by_sb, candidate_sb)
+                    if existing_runs is None or len(existing_runs["kernel_time"]) < 2:
+                        # nothing to compute statistics over, so run the benchmark to collect results
+                        # bootstrap method needs at least two values
+                        return candidate_sb
+                    else:
+                        # now check current CI because a previous run may have made this tight enough
+                        existing_runs_timings = existing_runs["kernel_time"]
+                        stat_func = getattr(np, self.prep.ci_statistic)
+                        np_existing_timings = np.array(existing_runs_timings)
+                        ci = result_processing.get_ci(
+                            np_existing_timings, statistic=stat_func
+                        )
+                        measured_val = stat_func(np_existing_timings)
+                        ci_lower_permitted = measured_val * (
+                            1 - self.prep.ci_max_dev_from_plain_stat
+                        )
+                        ci_upper_permitted = measured_val * (
+                            1 + self.prep.ci_max_dev_from_plain_stat
+                        )
+                        print(
+                            f"CI is ({ci.low}, {ci.high}), measured stat {measured_val}, permitted CI is ({ci_lower_permitted}, {ci_upper_permitted})"
+                        )
+                        if ci.low < ci_lower_permitted or ci_upper_permitted < ci.high:
+                            # this candidate still has a too-broad CI
+                            prior_runs = self.get_runs_by(grouped_by_sb, candidate_sb)
+                            times_ran = (
+                                len(prior_runs["kernel_time"])
+                                if prior_runs is not None
+                                else 0
+                            )
+                            print(f"Ran {times_ran} times so far")
+                            return candidate_sb
+                        else:
+                            # this one is already satisfying the CI tightness
+                            print(f"CI tight enough")
+                            self.ci_not_yet_tight.remove(candidate_sb)
+
         if self.prep.keep_going:
-            return random.choice(self.prep.benchmark_choices)
+            item = random.choice(self.prep.benchmark_choices)
+            prior_runs = self.get_runs_by(grouped_by_sb, item)
+            times_ran = len(prior_runs["kernel_time"]) if prior_runs is not None else 0
+            print(f"Ran {times_ran} times so far")
+            return item
         else:
             return None
+
+    def get_runs_by(
+        self,
+        grouped_by_sb: result_processing.PreprocessedResults,
+        sb_searched: SingleBenchmark,
+    ):
+        return next((sb[1] for sb in grouped_by_sb if sb[0] == sb_searched), None)
 
     def run_single_benchmark(self, b: SingleBenchmark) -> ProcessedResult:
         try:
@@ -44,7 +116,6 @@ class BenchmarkRunner:
             raise e
 
     def main_run_loop(self, r: runner.Runner) -> List[ProcessedResult]:
-        results: List[ProcessedResult] = []
         while True:
             try:
                 next_benchmark = self.select_next_benchmark()
@@ -52,15 +123,17 @@ class BenchmarkRunner:
                     break
                 res = self.run_single_benchmark(next_benchmark)
 
-                results.append(res)
+                self.results.append(res)
             except KeyboardInterrupt:
                 break
 
-        return results
+        return self.results
 
     def main_run(self, args):
         r = runner.Runner()
         self.prep = preparation.all_prepare(r, self.benchmark_config)
+        if self.prep.also_require_ci:
+            self.ci_not_yet_tight = [c for c in self.prep.benchmark_choices]
         results = self.main_run_loop(r)
         if args.results_output is not None:
             procres_schema = marshmallow_dataclass.class_schema(ProcessedResult)()
@@ -69,7 +142,7 @@ class BenchmarkRunner:
                 json.dump(results_pyobj, f, indent=4)
         if args.output is not None:
             print(args.output)
-            preproc_results = output.preprocess_results(results)
+            preproc_results = result_processing.preprocess_results(results)
             output.run_output(preproc_results, args.output)
         return results
 

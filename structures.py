@@ -129,6 +129,11 @@ class PreparationResult:
     save_raw_outputs: bool
     save_parsed_output_data: bool
     save_deviations: bool
+    also_require_ci: bool = True
+    ci_max_dev_from_plain_stat: float = (
+        0.05  # means want tight confidence interval, with the bounds within -5% to +5% of the statistic taken directly like median
+    )
+    ci_statistic: str = "median"  # should be a function in numpy
 
 
 @dataclass

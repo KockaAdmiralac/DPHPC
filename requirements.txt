@@ -5,3 +5,4 @@ pyright==1.1.387
 marshmallow-dataclass
 typeguard
 marshmallow_numpy
+scipy

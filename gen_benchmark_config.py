@@ -225,7 +225,7 @@ if __name__ == "__main__":
     )
 
     parser.add_argument(
-        "--min-runs", type=int, default=1, help="The minimum number of runs to perform"
+        "--min-runs", type=int, default=5, help="The minimum number of runs to perform"
     )
 
     parser.add_argument(

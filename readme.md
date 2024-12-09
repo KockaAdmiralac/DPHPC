@@ -26,7 +26,7 @@ The configuration generator supports:
   - `--benchmark adi serial_opt serial_block openmp_base --benchmark gemver mpi_cols cuda_improved6`
   - `--benchmark gemver cuda_cublas serial_block_first_loop`
 - `--threads`: How many threads to test with for OpenMP/MPI, as a comma-separated list.
-- `--min-runs`: How many runs `test_v2.py` should run.  If `--keep-going` is provided, this specifies the minimum runs to perform for each configuration.  Every configuration will be run this many times before switching to random resampling.  The default is 1 run.
+- `--min-runs`: How many runs `test_v2.py` should run.  If `--keep-going` is provided, this specifies the minimum runs to perform for each configuration.  Every configuration will be run this many times before switching to random resampling.  The default is 5 run.  Note: when the confidence interval needs to be calculated there need to be at least two runs so the program will automatically perform a second run in that case even if `--min-runs` is 1.
 - `--keep-going`: Useful when you have a good amount of time but are unsure how long you can allocate, specify this if you'd like `test_v2.py` to randomly resample configurations to get more trials for each.  Interrupt the benchmark run with Ctrl+C, wait for the program to finish running the current run and it will run the rest of the program like saving to a results file.  If this is not specified, `test_v2.py` will only run exactly as many runs as given by `--min-runs`.
   
   Example: `--keep-going --min-runs 5` will run five of each configuration, then will print the "must completes" are done and will switch to randomly sampling among the possible configurations and running those.  It will keep running until it gets Ctrl+C.
