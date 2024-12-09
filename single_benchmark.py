@@ -120,11 +120,11 @@ def run_benchmark(b: SingleBenchmark, prep: PreparationResult) -> ProcessedResul
 
     if not b.variant_config.compile_options.disable_checking:
         res.data_valid, temp_dev = check_results_or_log_failure(
-            b, prep.ground_truth_results[b.ground_truth_bin_path], data_output
+            b, prep.ground_truth_results[b.ground_truth_bin_path], data_output  # type: ignore
         )
 
         if prep.save_deviations:
-            res.deviations = temp_dev.ravel().tolist()
+            res.deviations = temp_dev.ravel().tolist()  # type: ignore
         # gives lots of normally useless data
 
         res.data_checked = True

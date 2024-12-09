@@ -55,7 +55,7 @@ ground_truth_run_func = Callable[[CompilationSettings], Tuple[Path, ParsedOutput
 def compile_run_ground_truth(
     gt_comps: Iterable[CompilationSettings],
 ) -> Iterable[Tuple[ground_truth_run_func, List[CompilationSettings]]]:
-    def single_gt(gt: CompilationSettings) -> ParsedOutputData:
+    def single_gt(gt: CompilationSettings) -> Tuple[Path, ParsedOutputData]:
         compat.compile(gt)
         raw_res = single_benchmark.lowlevel_run(
             lambda: [

@@ -2,7 +2,7 @@ from itertools import starmap
 import struct
 import numpy as np
 from typing import Literal, Optional
-import marshmallow_numpy
+import marshmallow_numpy  # type: ignore
 
 import argparse
 

@@ -50,7 +50,7 @@ def group_runs(results: Iterable[ProcessedResult]) -> PreprocessedResults:
 
 
 def preprocess_results(
-    results: Iterable[PreprocessedResultPair],
+    results: Iterable[ProcessedResult],
 ) -> PreprocessedResults:
     return group_runs(keep_valid_runs(results))
 
@@ -86,7 +86,7 @@ def output_table(results: Iterable[PreprocessedResultPair]) -> None:
                         )
                         for (sb, timings) in bm_res
                     ],
-                    key=lambda row: row[2],
+                    key=lambda row: list(row)[2],
                 ),
                 headers=header,
             )
