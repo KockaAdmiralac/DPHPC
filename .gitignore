@@ -1,4 +1,5 @@
 results
+plot/imgs
 slurm-*.out
 bin/
 DPHPC
