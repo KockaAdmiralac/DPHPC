@@ -274,14 +274,14 @@ void kernel_adi_inner(cublasHandle_t handle, int tsteps, int n, DATA_TYPE *u, DA
         // threads have negligible memory needs so 1024/block makes sense.
         double *temp_v = spare_arr;
         if (v_transposed) {
-        transpose_row_to_column<<<sms, 1024>>>(temp_v, v, n, 0);
-        transpose_row_to_column<<<sms, 1024>>>(temp_v, v, n, _PB_N - 1);
+            transpose_row_to_column<<<sms, 1024>>>(temp_v, v, n, 0);
+            transpose_row_to_column<<<sms, 1024>>>(temp_v, v, n, _PB_N - 1);
         }
         col_sweep<<<sms, SWEEP_TPB>>>(tsteps, n, u, temp_v, p, q, a, b, c, d, f, true, v_transposed);
         if (v_transposed) {
-        transpose_oop(handle, temp_v, v, n);
+            transpose_oop(handle, temp_v, v, n);
         } else {
-            copy_array<<<sms, 1024>>>(&temp_v[n], &v[n], n, n-2);
+            copy_array<<<sms, 1024>>>(&temp_v[n], &v[n], n, n - 2);
         }
 
         // Row Sweep
@@ -294,7 +294,7 @@ void kernel_adi_inner(cublasHandle_t handle, int tsteps, int n, DATA_TYPE *u, DA
         if (u_transposed) {
             transpose_oop(handle, temp_u, u, n);
         } else {
-            copy_array<<<sms, 1024>>>(&temp_u[n], &u[n], n, n-2);
+            copy_array<<<sms, 1024>>>(&temp_u[n], &u[n], n, n - 2);
         }
     }
 }
@@ -302,6 +302,7 @@ void kernel_adi_inner(cublasHandle_t handle, int tsteps, int n, DATA_TYPE *u, DA
 void kernel_adi(void *gen_data_ptr) {
     cuda_adi_data_t *data_ptr = (cuda_adi_data_t *)gen_data_ptr;
     kernel_adi_inner(data_ptr->handle, data_ptr->adi_data.tsteps, data_ptr->adi_data.n, data_ptr->u_dev,
-                     data_ptr->v_dev, data_ptr->p_dev, data_ptr->q_dev, data_ptr->spare_arr, data_ptr->u_transposed, data_ptr->v_transposed);
+                     data_ptr->v_dev, data_ptr->p_dev, data_ptr->q_dev, data_ptr->spare_arr, data_ptr->u_transposed,
+                     data_ptr->v_transposed);
     gpuErrchk(cudaDeviceSynchronize());
 }

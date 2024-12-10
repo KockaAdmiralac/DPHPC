@@ -1,6 +1,7 @@
 from argparse import ArgumentParser
 import json
 import random
+import traceback
 from typing import List
 
 import marshmallow_dataclass
@@ -126,6 +127,10 @@ class BenchmarkRunner:
                 self.results.append(res)
             except KeyboardInterrupt:
                 break
+            except Exception as e:
+                print(
+                    traceback.format_exc()
+                )  # intended to minimise damage of test_v2.py implementation bugs
 
         return self.results
 
