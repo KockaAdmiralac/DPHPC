@@ -26,6 +26,14 @@ class BenchmarkRunner:
     def __init__(self, benchmark_config: BenchmarkConfiguration) -> None:
         self.benchmark_config = benchmark_config
 
+    def disqualify_benchmark(self, sb: SingleBenchmark):
+        if sb in self.ci_not_yet_tight:
+            self.ci_not_yet_tight.remove(sb)
+        while sb in self.prep.must_completes:
+            self.prep.must_completes.remove(sb)
+        if sb in self.prep.benchmark_choices:
+            self.prep.benchmark_choices.remove(sb)
+
     def select_next_benchmark(self) -> SingleBenchmark | None:
         grouped_by_sb = result_processing.group_runs(self.results)
         if len(self.prep.must_completes):
@@ -123,6 +131,12 @@ class BenchmarkRunner:
                 if next_benchmark is None:
                     break
                 res = self.run_single_benchmark(next_benchmark)
+
+                if (res.data_checked and not res.data_valid) or (
+                    res.raw_result is not None and res.raw_result.exit_code != 0
+                ):
+                    self.disqualify_benchmark(next_benchmark)
+                    print(f"Disqualified {next_benchmark}")
 
                 self.results.append(res)
             except KeyboardInterrupt:

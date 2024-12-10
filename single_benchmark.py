@@ -1,5 +1,7 @@
+import base64
 from collections.abc import Callable
 import copy
+import hashlib
 import os
 from shutil import which
 import subprocess
@@ -98,7 +100,12 @@ def run_benchmark(b: SingleBenchmark, prep: PreparationResult) -> ProcessedResul
 
     raw_res = lowlevel_run(arg_maker, env_maker)
 
-    res = ProcessedResult(referenced_run=b)
+    source_file_data = b"".join(
+        map(lambda fp: open(fp, "rb").read(), sorted(b.compile_settings.source_files))
+    )
+    hashed = base64.b64encode(hashlib.sha256(source_file_data).digest()).decode()
+
+    res = ProcessedResult(referenced_run=b, sources_hash=hashed)
 
     if raw_res.exit_code != 0 or prep.save_raw_outputs:
         res.raw_result = raw_res

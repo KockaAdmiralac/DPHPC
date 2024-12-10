@@ -156,3 +156,4 @@ class ProcessedResult:
     data_checked: bool = False
     data_valid: Optional[bool] = None
     deviations: List[float] = field(default_factory=lambda: [])
+    sources_hash: str = ""
