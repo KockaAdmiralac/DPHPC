@@ -83,12 +83,12 @@ Running all useful, working benchmarks so far for a long run:
 python3 gen_benchmark_config.py \
     --keep-going \
     --threads 1,2,4,8,16 \
-    --benchmark gemver cuda_cublas cuda_improved2 cuda_improved3 cuda_improved4 cuda_improved5 cuda_improved6 mpi_basic mpi_cols mpi_non_block openmp_basic openmp_basic_all openmp_block_second_loop openmp_merged serial_base serial_block_first_loop serial_block_second_loop serial_extracted_alpha serial_extracted_beta serial_merge_loops serial_neater_c serial_reorder_second_loop serial_vectorized_first_loop serial_vectorized_second_loop \
+    --benchmark gemver cuda_cublas cuda_improved2 cuda_improved3 cuda_improved4 cuda_improved5 cuda_improved6 mpi_basic mpi_cols mpi_non_block mpi_rows openmp_basic openmp_basic_all openmp_block_second_loop openmp_merged serial_base serial_block_first_loop serial_block_second_loop serial_extracted_alpha serial_extracted_beta serial_merge_loops serial_neater_c serial_reorder_second_loop serial_vectorized_first_loop serial_vectorized_second_loop \
     --benchmark adi cuda_multithreaded4 cuda_multithreaded5 cuda_multithreaded6 cuda_multithreaded7 cuda_multithreaded8 cuda_multithreaded9 openmp_base openmp_base_opt openmp_block serial_base serial_block cuda_minimise_spare_arr_pop cuda_multithreaded12 \
     --multiple-define gemver,*,*,N2,1000,2000,3000,4000,5000,6000,7000,8000,9000,10000,11000,12000,13000,14000,1024,1536,2048,3172,4096,6144,8192,10240,12288,14336,1023,1535,2047,3171,4095,6143,8191,10239,12287,14335,1025,1537,2049,3173,4097,6145,8193,10241,12289 \
     --multiple-define adi,*,*,N2,1000,2000,3000,4000,5000,6000,1024,1536,2048,3172,4096,6144,1023,1535,2047,3171,4095,6143,1025,1537,2049,3173,4097,6145 \
     --extra-defines adi,*,add,TSTEPS=15 \
-    --min-runs 25 \
+    --min-runs 10 \
     --ground-truths-dir /storage/bulk2024b/dphpc_results \
     config2.json
 ```
