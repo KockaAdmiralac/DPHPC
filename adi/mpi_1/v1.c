@@ -17,7 +17,7 @@ typedef struct {
     int tsteps;
     int n;
     int argc;
-    char **argv;
+    char** argv;
     int rank, world_size;
     int start_i, end_i;
     int bounds_per_process[MAX_PROCESSES][2];
@@ -40,7 +40,7 @@ void initialise_benchmark(int argc, char** argv, int tsteps, int n, void** gen_d
         data_ptr->p[i] = 0.0;
         data_ptr->q[i] = 0.0;
         for (j = 0; j < n; j++) {
-            data_ptr->u[i][j] = (DATA_TYPE) (i + n - j) / n;
+            data_ptr->u[i][j] = (DATA_TYPE)(i + n - j) / n;
             data_ptr->v[i][j] = 0.0;
         }
     }
@@ -91,7 +91,7 @@ void print_data(int argc, char** argv, int n, void* gen_data_ptr) {
     fflush(stdout);
     mpi_adi_data_t* data_ptr = (mpi_adi_data_t*)gen_data_ptr;
     if (data_ptr->rank == 0) {
-        default_adi_data_t *adi_data = polybench_alloc_data(1, sizeof(default_adi_data_t));
+        default_adi_data_t* adi_data = polybench_alloc_data(1, sizeof(default_adi_data_t));
         int i, j;
         for (i = 0; i < n; i++)
             for (j = 0; j < n; j++) adi_data->u[i][j] = data_ptr->u[i][j];
@@ -119,8 +119,8 @@ void kernel_adi(void* gen_data_ptr) {
     DATA_TYPE B1, B2;
     DATA_TYPE mul1, mul2;
     DATA_TYPE a, b, c, d, e, f;
-    DATA_TYPE *p = data_ptr->p;
-    DATA_TYPE *q = data_ptr->q;
+    DATA_TYPE* p = data_ptr->p;
+    DATA_TYPE* q = data_ptr->q;
 
     DX = SCALAR_VAL(1.0) / (DATA_TYPE)_PB_N;
     DY = SCALAR_VAL(1.0) / (DATA_TYPE)_PB_N;
@@ -147,8 +147,7 @@ void kernel_adi(void* gen_data_ptr) {
         for (i = start_i; i < end_i; i++) {
             for (j = 1; j < _PB_N - 1; j++) {
                 p[j] = -c / (a * p[j - 1] + b);
-                q[j] = (-d * data_ptr->u[j][i - 1] +
-                        (SCALAR_VAL(1.0) + SCALAR_VAL(2.0) * d) * data_ptr->u[j][i] -
+                q[j] = (-d * data_ptr->u[j][i - 1] + (SCALAR_VAL(1.0) + SCALAR_VAL(2.0) * d) * data_ptr->u[j][i] -
                         f * data_ptr->u[j][i + 1] - a * q[j - 1]) /
                        (a * p[j - 1] + b);
             }
@@ -157,15 +156,14 @@ void kernel_adi(void* gen_data_ptr) {
             }
         }
         // Sync array v among all processes here!
-        MPI_Allgatherv(MPI_IN_PLACE, 0, MPI_DATATYPE_NULL, data_ptr->v, data_ptr->elems_per_process,
-                       data_ptr->displs, MPI_DOUBLE, MPI_COMM_WORLD);
+        MPI_Allgatherv(MPI_IN_PLACE, 0, MPI_DATATYPE_NULL, data_ptr->v, data_ptr->elems_per_process, data_ptr->displs,
+                       MPI_DOUBLE, MPI_COMM_WORLD);
         // Row Sweep
         for (i = data_ptr->start_i; i < data_ptr->end_i; i++) {
             data_ptr->u[i][0] = SCALAR_VAL(1.0);
             for (j = 1; j < _PB_N - 1; j++) {
                 p[j] = -f / (d * p[j - 1] + e);
-                q[j] = (-a * data_ptr->v[j][i - 1] +
-                        (SCALAR_VAL(1.0) + SCALAR_VAL(2.0) * a) * data_ptr->v[j][i] -
+                q[j] = (-a * data_ptr->v[j][i - 1] + (SCALAR_VAL(1.0) + SCALAR_VAL(2.0) * a) * data_ptr->v[j][i] -
                         c * data_ptr->v[j][i + 1] - d * q[j - 1]) /
                        (d * p[j - 1] + e);
             }
@@ -175,7 +173,7 @@ void kernel_adi(void* gen_data_ptr) {
             }
         }
         // Sync here the array u only once again!
-        MPI_Allgatherv(MPI_IN_PLACE, 0, MPI_DATATYPE_NULL, data_ptr->u, data_ptr->elems_per_process,
-                       data_ptr->displs, MPI_DOUBLE, MPI_COMM_WORLD);
+        MPI_Allgatherv(MPI_IN_PLACE, 0, MPI_DATATYPE_NULL, data_ptr->u, data_ptr->elems_per_process, data_ptr->displs,
+                       MPI_DOUBLE, MPI_COMM_WORLD);
     }
 }
