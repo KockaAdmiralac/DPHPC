@@ -5,11 +5,12 @@
 #include <mpi.h>
 
 /* Include benchmark-specific header. */
+#include <caliper/cali.h>
 #include <math.h>
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
-#include <caliper/cali.h>
+
 #include "gemver.h"
 
 int world_size;
@@ -174,8 +175,7 @@ void kernel_gemver(int n, DATA_TYPE alpha, DATA_TYPE beta, DATA_TYPE POLYBENCH_2
                    DATA_TYPE POLYBENCH_1D(u2, N2, n), DATA_TYPE POLYBENCH_1D(v2, N2, n),
                    DATA_TYPE POLYBENCH_1D(w, N2, n), DATA_TYPE POLYBENCH_1D(x, N2, n), DATA_TYPE POLYBENCH_1D(y, N2, n),
                    DATA_TYPE POLYBENCH_1D(z, N2, n)) {
-
-    //cali_begin_region("kernel");
+    // cali_begin_region("kernel");
 
     /*
     calculate  A = A + u1*v1 + u2*v2
@@ -220,7 +220,7 @@ void kernel_gemver(int n, DATA_TYPE alpha, DATA_TYPE beta, DATA_TYPE POLYBENCH_2
     // combine all process w to the main w in process 0
     MPI_Reduce(process_w, w, n, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
 
-    //cali_end_region("kernel");
+    // cali_end_region("kernel");
 
     POLYBENCH_FREE_ARRAY(process_v2);
     POLYBENCH_FREE_ARRAY(process_v1);

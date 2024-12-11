@@ -5,11 +5,12 @@
 #include <mpi.h>
 #include <omp.h>
 /* Include benchmark-specific header. */
+#include <caliper/cali.h>
 #include <math.h>
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
-#include <caliper/cali.h>
+
 #include "gemver.h"
 
 int world_size;
@@ -175,14 +176,13 @@ void kernel_gemver(int n, DATA_TYPE alpha, DATA_TYPE beta, DATA_TYPE POLYBENCH_2
                    DATA_TYPE POLYBENCH_1D(u2, N2, n), DATA_TYPE POLYBENCH_1D(v2, N2, n),
                    DATA_TYPE POLYBENCH_1D(w, N2, n), DATA_TYPE POLYBENCH_1D(x, N2, n), DATA_TYPE POLYBENCH_1D(y, N2, n),
                    DATA_TYPE POLYBENCH_1D(z, N2, n)) {
-
-    //cali_begin_region("kernel");
+    // cali_begin_region("kernel");
 
     /*
     calculate  A = A + u1*v1 + u2*v2
     */
     for (int i = 0; i < n; i++) {
-    #pragma omp simd
+#pragma omp simd
         for (int j = 0; j < process_size; j++) {
             process_A[i * process_size + j] += u1[i] * process_v1[j] + u2[i] * process_v2[j];
             process_x[j] += beta * process_A[i * process_size + j] * y[i];
@@ -193,7 +193,7 @@ void kernel_gemver(int n, DATA_TYPE alpha, DATA_TYPE beta, DATA_TYPE POLYBENCH_2
     MPI_Request send_x;
 
     MPI_Igatherv(process_A, process_size, new_columns, A, num_elements_matrix, block_start_indx_matrix,
-                new_columns_to_get, 0, MPI_COMM_WORLD, &send_A_res);
+                 new_columns_to_get, 0, MPI_COMM_WORLD, &send_A_res);
 
     for (int j = 0; j < process_size; j++)  // careful need to add z outside of i loop!
     {
@@ -201,7 +201,8 @@ void kernel_gemver(int n, DATA_TYPE alpha, DATA_TYPE beta, DATA_TYPE POLYBENCH_2
     }
 
     // send results to first process
-    MPI_Igatherv(process_x, process_size, MPI_DOUBLE, x, num_elements, block_start_indx, MPI_DOUBLE, 0, MPI_COMM_WORLD, &send_x);
+    MPI_Igatherv(process_x, process_size, MPI_DOUBLE, x, num_elements, block_start_indx, MPI_DOUBLE, 0, MPI_COMM_WORLD,
+                 &send_x);
 
     /*
     calculate  w += a * A * x
@@ -216,7 +217,5 @@ void kernel_gemver(int n, DATA_TYPE alpha, DATA_TYPE beta, DATA_TYPE POLYBENCH_2
     MPI_Wait(&send_A_res, MPI_STATUS_IGNORE);
     MPI_Wait(&send_x, MPI_STATUS_IGNORE);
 
-
-    //cali_end_region("kernel");
-
+    // cali_end_region("kernel");
 }
