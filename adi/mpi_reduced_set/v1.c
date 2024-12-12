@@ -5,6 +5,8 @@
 #include <mpi.h>
 #include <stdio.h>
 #include <unistd.h>
+#include <assert.h>
+#include <libc.h>
 
 #include "adi.h"
 
@@ -26,6 +28,8 @@ typedef struct {
     int bounds_per_process[MAX_PROCESSES][2];
     int send_count_to_process[MAX_PROCESSES];
     int recv_count_from_process[MAX_PROCESSES];
+    int elems_per_process[MAX_PROCESSES];
+    int displs[MAX_PROCESSES];
 } mpi_adi_data_t;
 
 void initialise_benchmark(int argc, char** argv, int tsteps, int n, void** gen_data_ptr) {
@@ -46,7 +50,7 @@ void initialise_benchmark(int argc, char** argv, int tsteps, int n, void** gen_d
             data_ptr->v[i][j] = 0.0;
         }
     }
-    int block_size;
+    int cnt = 0;
 
     MPI_Init(&argc, &argv);
     MPI_Comm_rank(MPI_COMM_WORLD, &data_ptr->rank);
@@ -58,10 +62,20 @@ void initialise_benchmark(int argc, char** argv, int tsteps, int n, void** gen_d
     for (i = 0; i < data_ptr->world_size - 1; i++) {
         data_ptr->bounds_per_process[i][0] = i * _PB_N / data_ptr->world_size;
         data_ptr->bounds_per_process[i][1] = (i + 1) * _PB_N / data_ptr->world_size;
+        data_ptr->elems_per_process[i] =
+                (data_ptr->bounds_per_process[i][1] - data_ptr->bounds_per_process[i][0]) * _PB_N;
+        data_ptr->displs[i] = cnt;
+        cnt += data_ptr->elems_per_process[i];
     }
     data_ptr->bounds_per_process[data_ptr->world_size - 1][0] =
         (data_ptr->world_size - 1) * _PB_N / data_ptr->world_size;
     data_ptr->bounds_per_process[data_ptr->world_size - 1][1] = _PB_N - 1;
+    data_ptr->elems_per_process[data_ptr->world_size - 1] =
+            (data_ptr->bounds_per_process[data_ptr->world_size - 1][1] -
+             data_ptr->bounds_per_process[data_ptr->world_size - 1][0] + 1) *
+            _PB_N;
+    data_ptr->displs[data_ptr->world_size - 1] = cnt;
+
     data_ptr->bounds_per_process[0][0] = 1;
 
     data_ptr->start_i = data_ptr->bounds_per_process[data_ptr->rank][0];
@@ -72,13 +86,12 @@ void initialise_benchmark(int argc, char** argv, int tsteps, int n, void** gen_d
     // data_ptr->bounds_per_process[j][0] + 1) elements My process receives from p_j (data_ptr->bounds_per_process[j][1]
     // - data_ptr->bounds_per_process[j][0]) * (data_ptr->end_i - data_ptr->start_i + 1) elements
     for (i = 0; i < data_ptr->world_size; i++) {
-        data_ptr->send_count_to_process[i] =
-            (data_ptr->end_i - data_ptr->start_i) *
-            (data_ptr->bounds_per_process[i][1] - data_ptr->bounds_per_process[i][0] + 1);
-        data_ptr->recv_count_from_process[i] =
-            (data_ptr->bounds_per_process[i][1] - data_ptr->bounds_per_process[i][0]) *
-            (data_ptr->end_i - data_ptr->start_i + 2 -
-             (data_ptr->rank == 0 || data_ptr->rank == data_ptr->world_size - 1));
+        if (i == data_ptr->rank)
+            continue;
+        int scount = data_ptr->bounds_per_process[i][1] - data_ptr->bounds_per_process[i][0];
+        int rcount = data_ptr->end_i - data_ptr->start_i;
+        data_ptr->send_count_to_process[i] = (rcount) * (scount + 2);
+        data_ptr->recv_count_from_process[i] = (scount) * (rcount + 2);
 
         data_ptr->send_buf[i] = polybench_alloc_data(data_ptr->send_count_to_process[i], sizeof(DATA_TYPE));
         data_ptr->recv_buf[i] = polybench_alloc_data(data_ptr->recv_count_from_process[i], sizeof(DATA_TYPE));
@@ -92,10 +105,17 @@ void initialise_benchmark(int argc, char** argv, int tsteps, int n, void** gen_d
 
 void finish_benchmark(void* gen_data_ptr) {
     mpi_adi_data_t* data_ptr = (mpi_adi_data_t*)gen_data_ptr;
-    //    for (int i = 0; i < data_ptr->world_size; i++) {
-    //        polybench_free_data(data_ptr->send_buf_v[i]);
-    //        polybench_free_data(data_ptr->send_buf_u[i]);
-    //    }
+
+    // Sync here the array u only once again!
+    MPI_Allgatherv(MPI_IN_PLACE, 0, MPI_DATATYPE_NULL, data_ptr->u, data_ptr->elems_per_process, data_ptr->displs,
+                   MPI_DOUBLE, MPI_COMM_WORLD);
+
+    for (int i = 0; i < data_ptr->world_size; i++) {
+        if (i == data_ptr->rank)
+            continue;
+        polybench_free_data(data_ptr->send_buf[i]);
+        polybench_free_data(data_ptr->recv_buf[i]);
+    }
 
     MPI_Finalize();
 }
@@ -116,6 +136,7 @@ void print_data(int argc, char** argv, int n, void* gen_data_ptr) {
         for (i = 0; i < n; i++)
             for (j = 0; j < n; j++) adi_data->v[i][j] = data_ptr->v[i][j];
         default_print_data(argc, argv, n, adi_data);
+        polybench_free_data(adi_data);
     }
 }
 
@@ -133,7 +154,7 @@ void kernel_adi(void* gen_data_ptr) {
     int tsteps = data_ptr->tsteps;
     int start_i = data_ptr->start_i;
     int end_i = data_ptr->end_i;
-    int needed_start, needed_end, buf_idx, row, displs_end, displs_start;
+    int needed_start, needed_end;
 
     int t, i, j, pi, pcount;
     MPI_Request* recv_requests_v = (MPI_Request*)polybench_alloc_data(world_size - 1, sizeof(MPI_Request));
@@ -173,43 +194,44 @@ void kernel_adi(void* gen_data_ptr) {
                         f * data_ptr->u[j][i + 1] - a * q[j - 1]) /
                        (a * p[j - 1] + b);
             }
+            for (j = _PB_N - 2; j >= 1; j--) {
+                data_ptr->v[i][j] = p[j] * data_ptr->v[i][j + 1] + q[j];
+            }
             for (pi = world_size - 1; pi >= 0; pi--) {
-                needed_start = data_ptr->bounds_per_process[pi][0] - (pi != 0);
-                needed_end = data_ptr->bounds_per_process[pi][1] - (pi == world_size - 1);
-                buf_idx = (i - start_i) * (needed_end - needed_start + 1) + needed_end - needed_start;
-                for (j = needed_end; j >= needed_start; j--) {
-                    data_ptr->v[i][j] = p[j] * data_ptr->v[i][j + 1] + q[j];
-                    data_ptr->send_buf[pi][buf_idx] = data_ptr->v[i][j];
-                    buf_idx--;
-                }
+                if (pi == rank)
+                    continue;
+                needed_end = data_ptr->bounds_per_process[pi][1] + 1;
+                needed_start = data_ptr->bounds_per_process[pi][0] - 1;
+                pcount = needed_end - needed_start;
+                memcpy(&data_ptr->send_buf[pi][(i-start_i) * pcount], &data_ptr->v[i][needed_start], pcount * sizeof(DATA_TYPE));
             }
         }
         // Sync array v among all processes here!
         pcount = 0;
         for (pi = 0; pi < world_size; pi++) {
-            if (pi != rank) {
-                MPI_Isend(data_ptr->send_buf[pi], data_ptr->send_count_to_process[pi], MPI_DOUBLE, pi, 0,
-                          MPI_COMM_WORLD, &send_requests_v[pcount]);
-                MPI_Irecv(data_ptr->recv_buf[pi], data_ptr->recv_count_from_process[pi], MPI_DOUBLE, pi, 0,
-                          MPI_COMM_WORLD, &recv_requests_v[pcount++]);
-            }
+            if (pi == rank)
+                continue;
+            MPI_Isend(data_ptr->send_buf[pi], data_ptr->send_count_to_process[pi], MPI_DOUBLE, pi, 0,
+                      MPI_COMM_WORLD, &send_requests_v[pcount]);
+            MPI_Irecv(data_ptr->recv_buf[pi], data_ptr->recv_count_from_process[pi], MPI_DOUBLE, pi, 0,
+                      MPI_COMM_WORLD, &recv_requests_v[pcount++]);
+
         }
         MPI_Waitall(world_size - 1, recv_requests_v, MPI_STATUSES_IGNORE);
 
+        pcount = end_i - start_i + 2;
         for (pi = 0; pi < world_size; pi++) {
-            if (pi != rank) {
-                needed_start = data_ptr->bounds_per_process[pi][0];
-                needed_end = data_ptr->bounds_per_process[pi][1];
-                displs_end = (rank != world_size - 1);
-                displs_start = (rank != 0);
-                for (i = needed_start; i < needed_end; i++) {
-                    buf_idx = (i - needed_start) * (needed_end - needed_start + 1);
-                    for (j = start_i - displs_start; j < end_i + displs_end; j++) {
-                        data_ptr->v[i][j] = data_ptr->recv_buf[pi][buf_idx];
-                        buf_idx++;
-                    }
-                }
+            if (pi == rank)
+                continue;
+//                bool flag = true;
+//                while (flag)
+//                    sleep(2);
+            needed_start = data_ptr->bounds_per_process[pi][0];
+            needed_end = data_ptr->bounds_per_process[pi][1];
+            for (i = needed_start; i < needed_end; i++) {
+                memcpy(&data_ptr->v[i][start_i-1], &(data_ptr->recv_buf[pi][(i - needed_start) * pcount]),  pcount * sizeof(DATA_TYPE));
             }
+
         }
         // Row Sweep
         for (i = data_ptr->start_i; i < data_ptr->end_i; i++) {
@@ -221,43 +243,42 @@ void kernel_adi(void* gen_data_ptr) {
                        (d * p[j - 1] + e);
             }
             data_ptr->u[i][_PB_N - 1] = SCALAR_VAL(1.0);
+            for (j = _PB_N - 2; j >= 1; j--) {
+                data_ptr->u[i][j] = p[j] * data_ptr->u[i][j + 1] + q[j];
+            }
             for (pi = world_size - 1; pi >= 0; pi--) {
-                needed_start = data_ptr->bounds_per_process[pi][0] - (pi != 0);
-                needed_end = data_ptr->bounds_per_process[pi][1] - (pi == world_size - 1);
-                buf_idx = (i - start_i) * (needed_end - needed_start + 1) + needed_end - needed_start;
-                for (j = needed_end; j >= needed_start; j--) {
-                    data_ptr->u[i][j] = p[j] * data_ptr->u[i][j + 1] + q[j];
-                    data_ptr->send_buf[pi][buf_idx] = data_ptr->u[i][j];
-                    buf_idx--;
-                }
+                if (pi == rank)
+                    continue;
+                needed_end = data_ptr->bounds_per_process[pi][1] + 1;
+                needed_start = data_ptr->bounds_per_process[pi][0] - 1;
+                pcount = needed_end - needed_start;
+                memcpy(&data_ptr->send_buf[pi][(i-start_i) * pcount], &data_ptr->u[i][needed_start], pcount * sizeof(DATA_TYPE));
             }
         }
-        // Sync array v among all processes here!
+        // Sync array u among all processes here!
         pcount = 0;
         for (pi = 0; pi < world_size; pi++) {
-            if (pi != rank) {
-                MPI_Isend(data_ptr->send_buf[pi], data_ptr->send_count_to_process[pi], MPI_DOUBLE, pi, 0,
-                          MPI_COMM_WORLD, &send_requests_v[pcount]);
-                MPI_Irecv(data_ptr->recv_buf[pi], data_ptr->recv_count_from_process[pi], MPI_DOUBLE, pi, 0,
-                          MPI_COMM_WORLD, &recv_requests_v[pcount++]);
-            }
+            if (pi == rank)
+                continue;
+            MPI_Isend(data_ptr->send_buf[pi], data_ptr->send_count_to_process[pi], MPI_DOUBLE, pi, 0,
+                      MPI_COMM_WORLD, &send_requests_v[pcount]);
+            MPI_Irecv(data_ptr->recv_buf[pi], data_ptr->recv_count_from_process[pi], MPI_DOUBLE, pi, 0,
+                      MPI_COMM_WORLD, &recv_requests_v[pcount++]);
+
         }
         MPI_Waitall(world_size - 1, recv_requests_v, MPI_STATUSES_IGNORE);
 
+        pcount = end_i - start_i + 2;
         for (pi = 0; pi < world_size; pi++) {
-            if (pi != rank) {
-                needed_start = data_ptr->bounds_per_process[pi][0];
-                needed_end = data_ptr->bounds_per_process[pi][1];
-                displs_end = (rank != world_size - 1);
-                displs_start = (rank != 0);
-                for (i = needed_start; i < needed_end; i++) {
-                    buf_idx = (i - needed_start) * (needed_end - needed_start + 1);
-                    for (j = start_i - displs_start; j < end_i + displs_end; j++) {
-                        data_ptr->u[i][j] = data_ptr->recv_buf[pi][buf_idx];
-                        buf_idx++;
-                    }
-                }
+            if (pi == rank)
+                continue;
+            needed_start = data_ptr->bounds_per_process[pi][0];
+            needed_end = data_ptr->bounds_per_process[pi][1];
+            for (i = needed_start; i < needed_end; i++) {
+                memcpy(&data_ptr->u[i][start_i-1], &(data_ptr->recv_buf[pi][(i - needed_start) * pcount]),  pcount * sizeof(DATA_TYPE));
             }
         }
     }
+    polybench_free_data(recv_requests_v);
+    polybench_free_data(send_requests_v);
 }

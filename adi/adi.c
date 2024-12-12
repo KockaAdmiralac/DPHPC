@@ -70,7 +70,6 @@ void default_print_data(int argc, char** argv, int n, default_adi_data_t* data_p
     (void)argc;
     (void)argv;
     polybench_prevent_dce(print_array(n, data_ptr->u, "u"));
-    polybench_prevent_dce(print_array(n, data_ptr->v, "v"));
 #endif
 }
 
