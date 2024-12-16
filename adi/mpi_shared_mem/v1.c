@@ -2,11 +2,8 @@
 #include "polybench.h"
 
 /* Include benchmark-specific header. */
-#include <assert.h>
 #include <mpi.h>
-#include <stdio.h>
 #include <string.h>
-#include <unistd.h>
 
 #include "adi.h"
 
