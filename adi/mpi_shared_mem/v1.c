@@ -26,10 +26,6 @@ typedef struct {
     int rank, world_size;
     int start_i, end_i;
     int bounds_per_process[MAX_PROCESSES][2];
-    int send_count_to_process[MAX_PROCESSES];
-    int recv_count_from_process[MAX_PROCESSES];
-    int elems_per_process[MAX_PROCESSES];
-    int displs[MAX_PROCESSES];
     MPI_Comm shared_comm;
 } mpi_adi_data_t;
 
@@ -52,24 +48,14 @@ void initialise_benchmark(int argc, char** argv, int tsteps, int n, void** gen_d
     data_ptr->n = n;
     data_ptr->argc = argc;
     data_ptr->argv = argv;
-    int cnt = 0;
     // All processes should know each other's bounds
     for (i = 0; i < data_ptr->world_size - 1; i++) {
         data_ptr->bounds_per_process[i][0] = i * _PB_N / data_ptr->world_size;
         data_ptr->bounds_per_process[i][1] = (i + 1) * _PB_N / data_ptr->world_size;
-        data_ptr->elems_per_process[i] =
-            (data_ptr->bounds_per_process[i][1] - data_ptr->bounds_per_process[i][0]) * _PB_N;
-        data_ptr->displs[i] = cnt;
-        cnt += data_ptr->elems_per_process[i];
     }
     data_ptr->bounds_per_process[data_ptr->world_size - 1][0] =
         (data_ptr->world_size - 1) * _PB_N / data_ptr->world_size;
     data_ptr->bounds_per_process[data_ptr->world_size - 1][1] = _PB_N - 1;
-    data_ptr->elems_per_process[data_ptr->world_size - 1] =
-        (data_ptr->bounds_per_process[data_ptr->world_size - 1][1] -
-         data_ptr->bounds_per_process[data_ptr->world_size - 1][0] + 1) *
-        _PB_N;
-    data_ptr->displs[data_ptr->world_size - 1] = cnt;
 
     data_ptr->bounds_per_process[0][0] = 1;
 
@@ -100,21 +86,6 @@ void initialise_benchmark(int argc, char** argv, int tsteps, int n, void** gen_d
         MPI_Win_allocate_shared(0, sizeof(DATA_TYPE), MPI_INFO_NULL, data_ptr->shared_comm, &data_ptr->u, &data_ptr->win_u);
         MPI_Win_shared_query(data_ptr->win_u, 0, &sz, &disp_unit, &data_ptr->u);
     }
-
-
-    // process_i to process_j sends (end_i - start_i) * (end_j - start_j + 1) elements
-    // My process sends to p_j (data_ptr->end_i - data_ptr->start_i) * (data_ptr->bounds_per_process[j][1] -
-    // data_ptr->bounds_per_process[j][0] + 1) elements My process receives from p_j (data_ptr->bounds_per_process[j][1]
-    // - data_ptr->bounds_per_process[j][0]) * (data_ptr->end_i - data_ptr->start_i + 1) elements
-    for (i = 0; i < data_ptr->world_size; i++) {
-        if (i == data_ptr->rank) continue;
-        int scount = data_ptr->bounds_per_process[i][1] - data_ptr->bounds_per_process[i][0];
-        int rcount = data_ptr->end_i - data_ptr->start_i;
-        data_ptr->send_count_to_process[i] = (rcount) * (scount + 2);
-        data_ptr->recv_count_from_process[i] = (scount) * (rcount + 2);
-    }
-
-
     for (i = 0; i < n; i++) {
         data_ptr->p[i] = 0.0;
         data_ptr->q[i] = 0.0;
