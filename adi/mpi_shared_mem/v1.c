@@ -13,8 +13,8 @@
 #define MAX_PROCESSES 16
 
 typedef struct {
-    DATA_TYPE *u;
-    DATA_TYPE *v;
+    DATA_TYPE* u;
+    DATA_TYPE* v;
     DATA_TYPE POLYBENCH_1D(p, N2, n);
     DATA_TYPE POLYBENCH_1D(q, N2, n);
     MPI_Win win_v;
@@ -67,34 +67,38 @@ void initialise_benchmark(int argc, char** argv, int tsteps, int n, void** gen_d
 
     if (data_ptr->rank == 0) {
         // Rank 0 of shared_comm allocates the full memory
-        MPI_Win_allocate_shared(v_size_bytes, sizeof(DATA_TYPE), MPI_INFO_NULL, data_ptr->shared_comm, &data_ptr->v, &data_ptr->win_v);
+        MPI_Win_allocate_shared(v_size_bytes, sizeof(DATA_TYPE), MPI_INFO_NULL, data_ptr->shared_comm, &data_ptr->v,
+                                &data_ptr->win_v);
     } else {
         // Other ranks allocate 0 and query
         MPI_Aint sz;
         int disp_unit;
-        MPI_Win_allocate_shared(0, sizeof(DATA_TYPE), MPI_INFO_NULL, data_ptr->shared_comm, &data_ptr->v, &data_ptr->win_v);
+        MPI_Win_allocate_shared(0, sizeof(DATA_TYPE), MPI_INFO_NULL, data_ptr->shared_comm, &data_ptr->v,
+                                &data_ptr->win_v);
         MPI_Win_shared_query(data_ptr->win_v, 0, &sz, &disp_unit, &data_ptr->v);
     }
     // apply for u as well
     if (data_ptr->rank == 0) {
         // Rank 0 of shared_comm allocates the full memory
-        MPI_Win_allocate_shared(v_size_bytes, sizeof(DATA_TYPE), MPI_INFO_NULL, data_ptr->shared_comm, &data_ptr->u, &data_ptr->win_u);
+        MPI_Win_allocate_shared(v_size_bytes, sizeof(DATA_TYPE), MPI_INFO_NULL, data_ptr->shared_comm, &data_ptr->u,
+                                &data_ptr->win_u);
     } else {
         // Other ranks allocate 0 and query
         MPI_Aint sz;
         int disp_unit;
-        MPI_Win_allocate_shared(0, sizeof(DATA_TYPE), MPI_INFO_NULL, data_ptr->shared_comm, &data_ptr->u, &data_ptr->win_u);
+        MPI_Win_allocate_shared(0, sizeof(DATA_TYPE), MPI_INFO_NULL, data_ptr->shared_comm, &data_ptr->u,
+                                &data_ptr->win_u);
         MPI_Win_shared_query(data_ptr->win_u, 0, &sz, &disp_unit, &data_ptr->u);
     }
     for (i = 0; i < n; i++) {
         data_ptr->p[i] = 0.0;
         data_ptr->q[i] = 0.0;
         for (j = 0; j < n; j++) {
-            data_ptr->u[i*n + j] = (DATA_TYPE)(i + n - j) / n;
-            data_ptr->v[i*n + j] = 0.0;
+            data_ptr->u[i * n + j] = (DATA_TYPE)(i + n - j) / n;
+            data_ptr->v[i * n + j] = 0.0;
         }
-        data_ptr->v[i*n + 0] = SCALAR_VAL(1.0);
-        data_ptr->v[i*n + _PB_N - 1] = SCALAR_VAL(1.0);
+        data_ptr->v[i * n + 0] = SCALAR_VAL(1.0);
+        data_ptr->v[i * n + _PB_N - 1] = SCALAR_VAL(1.0);
     }
     data_ptr->v[data_ptr->rank] = -5;
     MPI_Win_sync(data_ptr->win_v);
@@ -171,28 +175,30 @@ void kernel_adi(void* gen_data_ptr) {
         for (i = start_i; i < end_i; i++) {
             for (j = 1; j < _PB_N - 1; j++) {
                 p[j] = -c / (a * p[j - 1] + b);
-                q[j] = (-d * data_ptr->u[j*n + i - 1] + (SCALAR_VAL(1.0) + SCALAR_VAL(2.0) * d) * data_ptr->u[j*n + i] -
-                        f * data_ptr->u[j*n + i + 1] - a * q[j - 1]) /
+                q[j] = (-d * data_ptr->u[j * n + i - 1] +
+                        (SCALAR_VAL(1.0) + SCALAR_VAL(2.0) * d) * data_ptr->u[j * n + i] -
+                        f * data_ptr->u[j * n + i + 1] - a * q[j - 1]) /
                        (a * p[j - 1] + b);
             }
             for (j = _PB_N - 2; j >= 1; j--) {
-                data_ptr->v[i*n + j] = p[j] * data_ptr->v[i*n + j + 1] + q[j];
+                data_ptr->v[i * n + j] = p[j] * data_ptr->v[i * n + j + 1] + q[j];
             }
         }
         MPI_Win_sync(data_ptr->win_v);
         MPI_Barrier(data_ptr->shared_comm);
         // Row Sweep
         for (i = data_ptr->start_i; i < data_ptr->end_i; i++) {
-            data_ptr->u[i*n + 0] = SCALAR_VAL(1.0);
+            data_ptr->u[i * n + 0] = SCALAR_VAL(1.0);
             for (j = 1; j < _PB_N - 1; j++) {
                 p[j] = -f / (d * p[j - 1] + e);
-                q[j] = (-a * data_ptr->v[j*n + i - 1] + (SCALAR_VAL(1.0) + SCALAR_VAL(2.0) * a) * data_ptr->v[j*n + i] -
-                        c * data_ptr->v[j*n + i + 1] - d * q[j - 1]) /
+                q[j] = (-a * data_ptr->v[j * n + i - 1] +
+                        (SCALAR_VAL(1.0) + SCALAR_VAL(2.0) * a) * data_ptr->v[j * n + i] -
+                        c * data_ptr->v[j * n + i + 1] - d * q[j - 1]) /
                        (d * p[j - 1] + e);
             }
-            data_ptr->u[i*n + _PB_N - 1] = SCALAR_VAL(1.0);
+            data_ptr->u[i * n + _PB_N - 1] = SCALAR_VAL(1.0);
             for (j = _PB_N - 2; j >= 1; j--) {
-                data_ptr->u[i*n + j] = p[j] * data_ptr->u[i*n + j + 1] + q[j];
+                data_ptr->u[i * n + j] = p[j] * data_ptr->u[i * n + j + 1] + q[j];
             }
         }
         MPI_Win_sync(data_ptr->win_u);
