@@ -2,11 +2,11 @@
 #include "polybench.h"
 
 /* Include benchmark-specific header. */
+#include <assert.h>
 #include <mpi.h>
 #include <stdio.h>
-#include <unistd.h>
-#include <assert.h>
 #include <string.h>
+#include <unistd.h>
 
 #include "adi.h"
 
@@ -63,7 +63,7 @@ void initialise_benchmark(int argc, char** argv, int tsteps, int n, void** gen_d
         data_ptr->bounds_per_process[i][0] = i * _PB_N / data_ptr->world_size;
         data_ptr->bounds_per_process[i][1] = (i + 1) * _PB_N / data_ptr->world_size;
         data_ptr->elems_per_process[i] =
-                (data_ptr->bounds_per_process[i][1] - data_ptr->bounds_per_process[i][0]) * _PB_N;
+            (data_ptr->bounds_per_process[i][1] - data_ptr->bounds_per_process[i][0]) * _PB_N;
         data_ptr->displs[i] = cnt;
         cnt += data_ptr->elems_per_process[i];
     }
@@ -71,9 +71,9 @@ void initialise_benchmark(int argc, char** argv, int tsteps, int n, void** gen_d
         (data_ptr->world_size - 1) * _PB_N / data_ptr->world_size;
     data_ptr->bounds_per_process[data_ptr->world_size - 1][1] = _PB_N - 1;
     data_ptr->elems_per_process[data_ptr->world_size - 1] =
-            (data_ptr->bounds_per_process[data_ptr->world_size - 1][1] -
-             data_ptr->bounds_per_process[data_ptr->world_size - 1][0] + 1) *
-            _PB_N;
+        (data_ptr->bounds_per_process[data_ptr->world_size - 1][1] -
+         data_ptr->bounds_per_process[data_ptr->world_size - 1][0] + 1) *
+        _PB_N;
     data_ptr->displs[data_ptr->world_size - 1] = cnt;
 
     data_ptr->bounds_per_process[0][0] = 1;
@@ -86,8 +86,7 @@ void initialise_benchmark(int argc, char** argv, int tsteps, int n, void** gen_d
     // data_ptr->bounds_per_process[j][0] + 1) elements My process receives from p_j (data_ptr->bounds_per_process[j][1]
     // - data_ptr->bounds_per_process[j][0]) * (data_ptr->end_i - data_ptr->start_i + 1) elements
     for (i = 0; i < data_ptr->world_size; i++) {
-        if (i == data_ptr->rank)
-            continue;
+        if (i == data_ptr->rank) continue;
         int scount = data_ptr->bounds_per_process[i][1] - data_ptr->bounds_per_process[i][0];
         int rcount = data_ptr->end_i - data_ptr->start_i;
         data_ptr->send_count_to_process[i] = (rcount) * (scount + 2);
@@ -111,8 +110,7 @@ void finish_benchmark(void* gen_data_ptr) {
                    MPI_DOUBLE, MPI_COMM_WORLD);
 
     for (int i = 0; i < data_ptr->world_size; i++) {
-        if (i == data_ptr->rank)
-            continue;
+        if (i == data_ptr->rank) continue;
         polybench_free_data(data_ptr->send_buf[i]);
         polybench_free_data(data_ptr->recv_buf[i]);
     }
@@ -198,15 +196,16 @@ void kernel_adi(void* gen_data_ptr) {
                 data_ptr->v[i][j] = p[j] * data_ptr->v[i][j + 1] + q[j];
             }
             for (pi = world_size - 1; pi >= 0; pi--) {
-                if (pi == rank)
-                    continue;
+                if (pi == rank) continue;
                 needed_end = data_ptr->bounds_per_process[pi][1] + 1;
                 needed_start = data_ptr->bounds_per_process[pi][0] - 1;
                 pcount = needed_end - needed_start;
-                memcpy(&data_ptr->send_buf[pi][(i-start_i) * pcount], &data_ptr->v[i][needed_start], pcount * sizeof(DATA_TYPE));
+                memcpy(&data_ptr->send_buf[pi][(i - start_i) * pcount], &data_ptr->v[i][needed_start],
+                       pcount * sizeof(DATA_TYPE));
 
-                if (!((i-start_i) * pcount + pcount <= data_ptr->send_count_to_process[pi])) {
-                    printf("Rank %d: i = %d start_i = %d pcount = %d send_count = %d\n", rank, i, start_i, pcount, data_ptr->send_count_to_process[pi]);
+                if (!((i - start_i) * pcount + pcount <= data_ptr->send_count_to_process[pi])) {
+                    printf("Rank %d: i = %d start_i = %d pcount = %d send_count = %d\n", rank, i, start_i, pcount,
+                           data_ptr->send_count_to_process[pi]);
                     exit(1);
                 }
             }
@@ -214,32 +213,29 @@ void kernel_adi(void* gen_data_ptr) {
         // Sync array v among all processes here!
         pcount = 0;
         for (pi = 0; pi < world_size; pi++) {
-            if (pi == rank)
-                continue;
-            MPI_Isend(data_ptr->send_buf[pi], data_ptr->send_count_to_process[pi], MPI_DOUBLE, pi, 0,
-                      MPI_COMM_WORLD, &send_requests_v[pcount]);
-            MPI_Irecv(data_ptr->recv_buf[pi], data_ptr->recv_count_from_process[pi], MPI_DOUBLE, pi, 0,
-                      MPI_COMM_WORLD, &recv_requests_v[pcount++]);
-
+            if (pi == rank) continue;
+            MPI_Isend(data_ptr->send_buf[pi], data_ptr->send_count_to_process[pi], MPI_DOUBLE, pi, 0, MPI_COMM_WORLD,
+                      &send_requests_v[pcount]);
+            MPI_Irecv(data_ptr->recv_buf[pi], data_ptr->recv_count_from_process[pi], MPI_DOUBLE, pi, 0, MPI_COMM_WORLD,
+                      &recv_requests_v[pcount++]);
         }
         MPI_Waitall(world_size - 1, send_requests_v, MPI_STATUSES_IGNORE);
         MPI_Waitall(world_size - 1, recv_requests_v, MPI_STATUSES_IGNORE);
 
         pcount = end_i - start_i + 2;
         for (pi = 0; pi < world_size; pi++) {
-            if (pi == rank)
-                continue;
-//                bool flag = true;
-//                while (flag)
-//                    sleep(2);
+            if (pi == rank) continue;
+            //                bool flag = true;
+            //                while (flag)
+            //                    sleep(2);
             needed_start = data_ptr->bounds_per_process[pi][0];
             needed_end = data_ptr->bounds_per_process[pi][1];
             for (i = needed_start; i < needed_end; i++) {
-                memcpy(&data_ptr->v[i][start_i-1], &(data_ptr->recv_buf[pi][(i - needed_start) * pcount]),  pcount * sizeof(DATA_TYPE));
+                memcpy(&data_ptr->v[i][start_i - 1], &(data_ptr->recv_buf[pi][(i - needed_start) * pcount]),
+                       pcount * sizeof(DATA_TYPE));
                 assert(start_i - 1 >= 0);
                 assert((i - needed_start) * pcount + pcount <= data_ptr->recv_count_from_process[pi]);
             }
-
         }
         // Row Sweep
         for (i = data_ptr->start_i; i < data_ptr->end_i; i++) {
@@ -255,37 +251,35 @@ void kernel_adi(void* gen_data_ptr) {
                 data_ptr->u[i][j] = p[j] * data_ptr->u[i][j + 1] + q[j];
             }
             for (pi = world_size - 1; pi >= 0; pi--) {
-                if (pi == rank)
-                    continue;
+                if (pi == rank) continue;
                 needed_end = data_ptr->bounds_per_process[pi][1] + 1;
                 needed_start = data_ptr->bounds_per_process[pi][0] - 1;
                 pcount = needed_end - needed_start;
-                memcpy(&data_ptr->send_buf[pi][(i-start_i) * pcount], &data_ptr->u[i][needed_start], pcount * sizeof(DATA_TYPE));
-                assert((i-start_i) * pcount + pcount <= data_ptr->send_count_to_process[pi]);
+                memcpy(&data_ptr->send_buf[pi][(i - start_i) * pcount], &data_ptr->u[i][needed_start],
+                       pcount * sizeof(DATA_TYPE));
+                assert((i - start_i) * pcount + pcount <= data_ptr->send_count_to_process[pi]);
             }
         }
         // Sync array u among all processes here!
         pcount = 0;
         for (pi = 0; pi < world_size; pi++) {
-            if (pi == rank)
-                continue;
-            MPI_Isend(data_ptr->send_buf[pi], data_ptr->send_count_to_process[pi], MPI_DOUBLE, pi, 0,
-                      MPI_COMM_WORLD, &send_requests_v[pcount]);
-            MPI_Irecv(data_ptr->recv_buf[pi], data_ptr->recv_count_from_process[pi], MPI_DOUBLE, pi, 0,
-                      MPI_COMM_WORLD, &recv_requests_v[pcount++]);
-
+            if (pi == rank) continue;
+            MPI_Isend(data_ptr->send_buf[pi], data_ptr->send_count_to_process[pi], MPI_DOUBLE, pi, 0, MPI_COMM_WORLD,
+                      &send_requests_v[pcount]);
+            MPI_Irecv(data_ptr->recv_buf[pi], data_ptr->recv_count_from_process[pi], MPI_DOUBLE, pi, 0, MPI_COMM_WORLD,
+                      &recv_requests_v[pcount++]);
         }
         MPI_Waitall(world_size - 1, send_requests_v, MPI_STATUSES_IGNORE);
         MPI_Waitall(world_size - 1, recv_requests_v, MPI_STATUSES_IGNORE);
 
         pcount = end_i - start_i + 2;
         for (pi = 0; pi < world_size; pi++) {
-            if (pi == rank)
-                continue;
+            if (pi == rank) continue;
             needed_start = data_ptr->bounds_per_process[pi][0];
             needed_end = data_ptr->bounds_per_process[pi][1];
             for (i = needed_start; i < needed_end; i++) {
-                memcpy(&data_ptr->u[i][start_i-1], &(data_ptr->recv_buf[pi][(i - needed_start) * pcount]),  pcount * sizeof(DATA_TYPE));
+                memcpy(&data_ptr->u[i][start_i - 1], &(data_ptr->recv_buf[pi][(i - needed_start) * pcount]),
+                       pcount * sizeof(DATA_TYPE));
                 assert(start_i - 1 >= 0);
                 assert((i - needed_start) * pcount + pcount <= data_ptr->recv_count_from_process[pi]);
             }
