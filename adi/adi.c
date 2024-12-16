@@ -112,8 +112,6 @@ int main(int argc, char** argv) {
     /* Stop and print timer. */
     polybench_stop_instruments;
 
-    finish_benchmark(data);
-
     if (should_print_counter(data)) {
         polybench_print_instruments;
     }
@@ -123,6 +121,7 @@ int main(int argc, char** argv) {
     print_data(argc, argv, n, data);
 #endif
 
+    finish_benchmark(data);
     /* Be clean. */
     free_data(data);
 
