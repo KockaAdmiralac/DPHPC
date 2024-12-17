@@ -138,7 +138,6 @@ void finish_benchmark(int n, DATA_TYPE alpha, DATA_TYPE beta, DATA_TYPE POLYBENC
     MPI_Put(process_A, process_size * _PB_N, MPI_DOUBLE, 0, block_start_indx[world_rank] * _PB_N, process_size * _PB_N,
             MPI_DOUBLE, win);
     MPI_Win_fence(0, win);
-    
 
     MPI_Win_free(&win);
     MPI_Finalize();

@@ -2,8 +2,6 @@
 #include <mpi.h>
 #include <polybench.h>
 
-//#include "profile.h"
-
 static int world_rank;
 static int process_size;
 static MPI_Win win;

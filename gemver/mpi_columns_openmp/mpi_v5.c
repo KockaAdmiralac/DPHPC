@@ -153,7 +153,7 @@ void finish_benchmark(int n, DATA_TYPE alpha, DATA_TYPE beta, DATA_TYPE POLYBENC
 
     MPI_Request send_A_res;
     MPI_Request send_x;
-    
+
     // send results to first process
     MPI_Igatherv(process_x, process_size, MPI_DOUBLE, x, num_elements, block_start_indx, MPI_DOUBLE, 0, MPI_COMM_WORLD,
                  &send_x);
@@ -201,8 +201,6 @@ void kernel_gemver(int n, DATA_TYPE alpha, DATA_TYPE beta, DATA_TYPE POLYBENCH_2
         }
     }
 
-    
-
     for (int j = 0; j < process_size; j++)  // careful need to add z outside of i loop!
     {
         process_x[j] += process_z[j];
@@ -218,7 +216,6 @@ void kernel_gemver(int n, DATA_TYPE alpha, DATA_TYPE beta, DATA_TYPE POLYBENCH_2
     }
     // combine all process w to the main w in process 0
     MPI_Reduce(process_w, w, n, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
-    
 
     // cali_end_region("kernel");
 }
