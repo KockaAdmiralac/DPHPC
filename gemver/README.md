@@ -19,3 +19,7 @@
 | `openmp_block_second_loop`      | `openmp_reorder_reduce`      | 6.0        | 6.5  | 6.5  | 6.5  |
 | `openmp_merged`                 | `openmp_block_second_loop`   | 6.5        | 10.0 | 10.0 | 10.0 |
 | `openmp_avx2`                   | `openmp_merged`              | ?          | ?    | ?    | ?    |
+| `mpi_rows`                      | `mpi_cols`                   | ?          | ?    | ?    | ?    |
+| `mpi_rows_outside_sync_A`       | `mpi_rows`                   | ?          | ?    | ?    | ?    |
+| `mpi_columns_openmp`            | `mpi_cols`                   | ?          | ?    | ?    | ?    |
+| `mpi_columns_non_blocking_communication_outside_sync_A`| `mpi_cols` | ?          | ?    | ?    | ?    |
