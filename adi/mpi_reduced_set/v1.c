@@ -108,6 +108,11 @@ void finish_benchmark(void* gen_data_ptr) {
     // Sync here the array u only once again!
     MPI_Allgatherv(MPI_IN_PLACE, 0, MPI_DATATYPE_NULL, data_ptr->u, data_ptr->elems_per_process, data_ptr->displs,
                    MPI_DOUBLE, MPI_COMM_WORLD);
+}
+
+
+void free_data(void* gen_data_ptr) {
+    mpi_adi_data_t* data_ptr = (mpi_adi_data_t*)gen_data_ptr;
 
     for (int i = 0; i < data_ptr->world_size; i++) {
         if (i == data_ptr->rank) continue;

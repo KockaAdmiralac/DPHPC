@@ -103,11 +103,14 @@ void initialise_benchmark(int argc, char** argv, int tsteps, int n, void** gen_d
 }
 
 void finish_benchmark(void* gen_data_ptr) {
-    mpi_adi_data_t* data_ptr = (mpi_adi_data_t*)gen_data_ptr;
+    (void) gen_data_ptr;
+}
 
-    // Sync here the array u only once again!
+void free_data(void* gen_data_ptr) {
+    mpi_adi_data_t* data_ptr = (mpi_adi_data_t*)gen_data_ptr;
     MPI_Win_free(&data_ptr->win_u);
     MPI_Win_free(&data_ptr->win_v);
+    free(gen_data_ptr);
     MPI_Finalize();
 }
 
