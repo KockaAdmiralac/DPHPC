@@ -102,9 +102,7 @@ void initialise_benchmark(int argc, char** argv, int tsteps, int n, void** gen_d
     MPI_Barrier(data_ptr->shared_comm);
 }
 
-void finish_benchmark(void* gen_data_ptr) {
-    (void) gen_data_ptr;
-}
+void finish_benchmark(void* gen_data_ptr) { (void)gen_data_ptr; }
 
 void free_data(void* gen_data_ptr) {
     mpi_adi_data_t* data_ptr = (mpi_adi_data_t*)gen_data_ptr;

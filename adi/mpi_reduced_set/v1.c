@@ -110,7 +110,6 @@ void finish_benchmark(void* gen_data_ptr) {
                    MPI_DOUBLE, MPI_COMM_WORLD);
 }
 
-
 void free_data(void* gen_data_ptr) {
     mpi_adi_data_t* data_ptr = (mpi_adi_data_t*)gen_data_ptr;
 
