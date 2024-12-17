@@ -70,9 +70,6 @@ void default_print_data(int argc, char** argv, int n, default_adi_data_t* data_p
     (void)argc;
     (void)argv;
     polybench_prevent_dce(print_array(n, data_ptr->u, "u"));
-    polybench_prevent_dce(print_array(n, data_ptr->v, "v"));
-    polybench_prevent_dce(print_array(n, data_ptr->p, "p"));
-    polybench_prevent_dce(print_array(n, data_ptr->q, "q"));
 #endif
 }
 
@@ -125,7 +122,6 @@ int main(int argc, char** argv) {
 #ifndef DISABLE_CHECKING
     print_data(argc, argv, n, data);
 #endif
-
     /* Be clean. */
     free_data(data);
 

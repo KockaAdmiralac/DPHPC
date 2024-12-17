@@ -3,17 +3,19 @@
 
 /* Include benchmark-specific header. */
 #include <mpi.h>
-#include <stdio.h>
+#include <string.h>
 
 #include "adi.h"
 
 #define MAX_PROCESSES 16
 
 typedef struct {
-    DATA_TYPE POLYBENCH_2D(u, N2, N2, n, n);
-    DATA_TYPE POLYBENCH_2D(v, N2, N2, n, n);
+    DATA_TYPE* u;
+    DATA_TYPE* v;
     DATA_TYPE POLYBENCH_1D(p, N2, n);
     DATA_TYPE POLYBENCH_1D(q, N2, n);
+    MPI_Win win_v;
+    MPI_Win win_u;
     int tsteps;
     int n;
     int argc;
@@ -21,66 +23,92 @@ typedef struct {
     int rank, world_size;
     int start_i, end_i;
     int bounds_per_process[MAX_PROCESSES][2];
-    int elems_per_process[MAX_PROCESSES];
-    int displs[MAX_PROCESSES];
+    MPI_Comm shared_comm;
 } mpi_adi_data_t;
 
 void initialise_benchmark(int argc, char** argv, int tsteps, int n, void** gen_data_ptr) {
+    MPI_Init(&argc, &argv);
+
     *gen_data_ptr = polybench_alloc_data(1, sizeof(mpi_adi_data_t));
     mpi_adi_data_t* data_ptr = (mpi_adi_data_t*)(*gen_data_ptr);
+    data_ptr->u = polybench_alloc_data(n * n, sizeof(DATA_TYPE));
+    data_ptr->v = polybench_alloc_data(n * n, sizeof(DATA_TYPE));
 
+    // Split communicator to include only shared memory processes
+    MPI_Comm_split_type(MPI_COMM_WORLD, MPI_COMM_TYPE_SHARED, 0, MPI_INFO_NULL, &data_ptr->shared_comm);
+
+    MPI_Comm_rank(data_ptr->shared_comm, &data_ptr->rank);
+    MPI_Comm_size(data_ptr->shared_comm, &data_ptr->world_size);
+
+    int i = 0, j;
     data_ptr->tsteps = tsteps;
     data_ptr->n = n;
     data_ptr->argc = argc;
     data_ptr->argv = argv;
-
-    int i, j;
-
-    for (i = 0; i < n; i++) {
-        data_ptr->p[i] = 0.0;
-        data_ptr->q[i] = 0.0;
-        for (j = 0; j < n; j++) {
-            data_ptr->u[i][j] = (DATA_TYPE)(i + n - j) / n;
-            data_ptr->v[i][j] = 0.0;
-        }
-    }
-    int cnt = 0;
-
-    MPI_Init(&argc, &argv);
-    MPI_Comm_rank(MPI_COMM_WORLD, &data_ptr->rank);
-    MPI_Comm_size(MPI_COMM_WORLD, &data_ptr->world_size);
     // All processes should know each other's bounds
     for (i = 0; i < data_ptr->world_size - 1; i++) {
         data_ptr->bounds_per_process[i][0] = i * _PB_N / data_ptr->world_size;
         data_ptr->bounds_per_process[i][1] = (i + 1) * _PB_N / data_ptr->world_size;
-        data_ptr->elems_per_process[i] =
-            (data_ptr->bounds_per_process[i][1] - data_ptr->bounds_per_process[i][0]) * _PB_N;
-        data_ptr->displs[i] = cnt;
-        cnt += data_ptr->elems_per_process[i];
     }
     data_ptr->bounds_per_process[data_ptr->world_size - 1][0] =
         (data_ptr->world_size - 1) * _PB_N / data_ptr->world_size;
     data_ptr->bounds_per_process[data_ptr->world_size - 1][1] = _PB_N - 1;
+
     data_ptr->bounds_per_process[0][0] = 1;
-    data_ptr->elems_per_process[data_ptr->world_size - 1] =
-        (data_ptr->bounds_per_process[data_ptr->world_size - 1][1] -
-         data_ptr->bounds_per_process[data_ptr->world_size - 1][0] + 1) *
-        _PB_N;
-    data_ptr->displs[data_ptr->world_size - 1] = cnt;
 
     data_ptr->start_i = data_ptr->bounds_per_process[data_ptr->rank][0];
     data_ptr->end_i = data_ptr->bounds_per_process[data_ptr->rank][1];
 
-    for (i = 0; i < n; i++) {
-        data_ptr->v[i][0] = SCALAR_VAL(1.0);
-        data_ptr->v[i][_PB_N - 1] = SCALAR_VAL(1.0);
+    // Step 2: Allocate a shared memory window for the entire v array
+    MPI_Aint v_size_bytes = (MPI_Aint)data_ptr->n * (MPI_Aint)data_ptr->n * (MPI_Aint)sizeof(DATA_TYPE);
+
+    if (data_ptr->rank == 0) {
+        // Rank 0 of shared_comm allocates the full memory
+        MPI_Win_allocate_shared(v_size_bytes, sizeof(DATA_TYPE), MPI_INFO_NULL, data_ptr->shared_comm, &data_ptr->v,
+                                &data_ptr->win_v);
+    } else {
+        // Other ranks allocate 0 and query
+        MPI_Aint sz;
+        int disp_unit;
+        MPI_Win_allocate_shared(0, sizeof(DATA_TYPE), MPI_INFO_NULL, data_ptr->shared_comm, &data_ptr->v,
+                                &data_ptr->win_v);
+        MPI_Win_shared_query(data_ptr->win_v, 0, &sz, &disp_unit, &data_ptr->v);
     }
+    // apply for u as well
+    if (data_ptr->rank == 0) {
+        // Rank 0 of shared_comm allocates the full memory
+        MPI_Win_allocate_shared(v_size_bytes, sizeof(DATA_TYPE), MPI_INFO_NULL, data_ptr->shared_comm, &data_ptr->u,
+                                &data_ptr->win_u);
+    } else {
+        // Other ranks allocate 0 and query
+        MPI_Aint sz;
+        int disp_unit;
+        MPI_Win_allocate_shared(0, sizeof(DATA_TYPE), MPI_INFO_NULL, data_ptr->shared_comm, &data_ptr->u,
+                                &data_ptr->win_u);
+        MPI_Win_shared_query(data_ptr->win_u, 0, &sz, &disp_unit, &data_ptr->u);
+    }
+    for (i = 0; i < n; i++) {
+        data_ptr->p[i] = 0.0;
+        data_ptr->q[i] = 0.0;
+        for (j = 0; j < n; j++) {
+            data_ptr->u[i * n + j] = (DATA_TYPE)(i + n - j) / n;
+            data_ptr->v[i * n + j] = 0.0;
+        }
+        data_ptr->v[i * n + 0] = SCALAR_VAL(1.0);
+        data_ptr->v[i * n + _PB_N - 1] = SCALAR_VAL(1.0);
+    }
+    data_ptr->v[data_ptr->rank] = -5;
+    MPI_Win_sync(data_ptr->win_v);
+    MPI_Barrier(data_ptr->shared_comm);
 }
 
 void finish_benchmark(void* gen_data_ptr) { (void)gen_data_ptr; }
 
 void free_data(void* gen_data_ptr) {
-    (void)gen_data_ptr;
+    mpi_adi_data_t* data_ptr = (mpi_adi_data_t*)gen_data_ptr;
+    MPI_Win_free(&data_ptr->win_u);
+    MPI_Win_free(&data_ptr->win_v);
+    free(gen_data_ptr);
     MPI_Finalize();
 }
 
@@ -90,16 +118,13 @@ bool should_print_counter(void* gen_data_ptr) {
 }
 
 void print_data(int argc, char** argv, int n, void* gen_data_ptr) {
-    fflush(stdout);
     mpi_adi_data_t* data_ptr = (mpi_adi_data_t*)gen_data_ptr;
     if (data_ptr->rank == 0) {
         default_adi_data_t* adi_data = polybench_alloc_data(1, sizeof(default_adi_data_t));
-        int i, j;
-        for (i = 0; i < n; i++)
-            for (j = 0; j < n; j++) adi_data->u[i][j] = data_ptr->u[i][j];
-        for (i = 0; i < n; i++)
-            for (j = 0; j < n; j++) adi_data->v[i][j] = data_ptr->v[i][j];
+        memcpy(adi_data->u, data_ptr->u, n * n * sizeof(DATA_TYPE));
+        memcpy(adi_data->v, data_ptr->v, n * n * sizeof(DATA_TYPE));
         default_print_data(argc, argv, n, adi_data);
+        polybench_free_data(adi_data);
     }
 }
 
@@ -145,37 +170,36 @@ void kernel_adi(void* gen_data_ptr) {
     // from previous iterations.
     for (t = 1; t <= _PB_TSTEPS; t++) {
         // Column Sweep --> Parallelizable! Each row is independent of one another.
-
         for (i = start_i; i < end_i; i++) {
             for (j = 1; j < _PB_N - 1; j++) {
                 p[j] = -c / (a * p[j - 1] + b);
-                q[j] = (-d * data_ptr->u[j][i - 1] + (SCALAR_VAL(1.0) + SCALAR_VAL(2.0) * d) * data_ptr->u[j][i] -
-                        f * data_ptr->u[j][i + 1] - a * q[j - 1]) /
+                q[j] = (-d * data_ptr->u[j * n + i - 1] +
+                        (SCALAR_VAL(1.0) + SCALAR_VAL(2.0) * d) * data_ptr->u[j * n + i] -
+                        f * data_ptr->u[j * n + i + 1] - a * q[j - 1]) /
                        (a * p[j - 1] + b);
             }
             for (j = _PB_N - 2; j >= 1; j--) {
-                data_ptr->v[i][j] = p[j] * data_ptr->v[i][j + 1] + q[j];
+                data_ptr->v[i * n + j] = p[j] * data_ptr->v[i * n + j + 1] + q[j];
             }
         }
-        // Sync array v among all processes here!
-        MPI_Allgatherv(MPI_IN_PLACE, 0, MPI_DATATYPE_NULL, data_ptr->v, data_ptr->elems_per_process, data_ptr->displs,
-                       MPI_DOUBLE, MPI_COMM_WORLD);
+        MPI_Win_sync(data_ptr->win_v);
+        MPI_Barrier(data_ptr->shared_comm);
         // Row Sweep
         for (i = data_ptr->start_i; i < data_ptr->end_i; i++) {
-            data_ptr->u[i][0] = SCALAR_VAL(1.0);
+            data_ptr->u[i * n + 0] = SCALAR_VAL(1.0);
             for (j = 1; j < _PB_N - 1; j++) {
                 p[j] = -f / (d * p[j - 1] + e);
-                q[j] = (-a * data_ptr->v[j][i - 1] + (SCALAR_VAL(1.0) + SCALAR_VAL(2.0) * a) * data_ptr->v[j][i] -
-                        c * data_ptr->v[j][i + 1] - d * q[j - 1]) /
+                q[j] = (-a * data_ptr->v[j * n + i - 1] +
+                        (SCALAR_VAL(1.0) + SCALAR_VAL(2.0) * a) * data_ptr->v[j * n + i] -
+                        c * data_ptr->v[j * n + i + 1] - d * q[j - 1]) /
                        (d * p[j - 1] + e);
             }
-            data_ptr->u[i][_PB_N - 1] = SCALAR_VAL(1.0);
+            data_ptr->u[i * n + _PB_N - 1] = SCALAR_VAL(1.0);
             for (j = _PB_N - 2; j >= 1; j--) {
-                data_ptr->u[i][j] = p[j] * data_ptr->u[i][j + 1] + q[j];
+                data_ptr->u[i * n + j] = p[j] * data_ptr->u[i * n + j + 1] + q[j];
             }
         }
-        // Sync here the array u only once again!
-        MPI_Allgatherv(MPI_IN_PLACE, 0, MPI_DATATYPE_NULL, data_ptr->u, data_ptr->elems_per_process, data_ptr->displs,
-                       MPI_DOUBLE, MPI_COMM_WORLD);
+        MPI_Win_sync(data_ptr->win_u);
+        MPI_Barrier(data_ptr->shared_comm);
     }
 }
