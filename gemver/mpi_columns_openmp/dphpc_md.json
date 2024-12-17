@@ -1,0 +1,5 @@
+{
+    "extra_compile_options": [
+        "-fopenmp"
+    ]
+}

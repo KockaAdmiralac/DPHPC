@@ -32,15 +32,12 @@ void kernel_gemver(int n, DATA_TYPE alpha, DATA_TYPE beta, DATA_TYPE POLYBENCH_2
             z[j] += beta * process_A[i * _PB_N + j] * process_y[i];
         }
 
-    MPI_Put(process_A, process_size * _PB_N, MPI_DOUBLE, 0, block_start_indx[world_rank] * _PB_N, process_size * _PB_N,
-            MPI_DOUBLE, win);
     MPI_Allreduce(z, x, _PB_N, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
 
     for (int i = 0; i < process_size; ++i)
         for (int j = 0; j < _PB_N; ++j) process_w[i] += alpha * process_A[i * _PB_N + j] * x[j];
 
     MPI_Gatherv(process_w, process_size, MPI_DOUBLE, w, num_elements, block_start_indx, MPI_DOUBLE, 0, MPI_COMM_WORLD);
-    MPI_Win_fence(0, win);
 }
 
 void initialise_benchmark(int argc, char** argv, int n, DATA_TYPE* alpha, DATA_TYPE* beta,
@@ -137,6 +134,10 @@ void finish_benchmark(int n, DATA_TYPE alpha, DATA_TYPE beta, DATA_TYPE POLYBENC
     (void)x;
     (void)y;
     (void)z;
+
+    MPI_Put(process_A, process_size * _PB_N, MPI_DOUBLE, 0, block_start_indx[world_rank] * _PB_N, process_size * _PB_N,
+            MPI_DOUBLE, win);
+    MPI_Win_fence(0, win);
 
     MPI_Win_free(&win);
     MPI_Finalize();

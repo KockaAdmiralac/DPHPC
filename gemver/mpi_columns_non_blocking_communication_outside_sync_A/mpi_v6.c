@@ -31,6 +31,9 @@ static int num_elements_matrix[MAX_PROCESSES];
 MPI_Datatype columns, new_columns;  // used to send tge blocks of the 2d array
 MPI_Datatype columns_to_get, new_columns_to_get;
 
+MPI_Request send_A_res;
+MPI_Request send_x;
+
 double *process_z, *process_v1, *process_v2, *process_x, *process_w;
 double *process_A;
 
@@ -129,6 +132,7 @@ void initialise_benchmark(int argc, char **argv, int n, DATA_TYPE *alpha, DATA_T
             process_A[i * process_size + j] = (DATA_TYPE)(i * (j + block_start_indx[world_rank]) % n) / n;
         }
     }
+    MPI_Barrier(MPI_COMM_WORLD);
 }
 
 void finish_benchmark(int n, DATA_TYPE alpha, DATA_TYPE beta, DATA_TYPE POLYBENCH_2D(A, N2, N2, n, n),
@@ -149,21 +153,29 @@ void finish_benchmark(int n, DATA_TYPE alpha, DATA_TYPE beta, DATA_TYPE POLYBENC
     (void)y;
     (void)z;
 
-    // Finalize the MPI environment.
+    // send results to first process
+    MPI_Igatherv(process_A, process_size, new_columns, A, num_elements_matrix, block_start_indx_matrix,
+                 new_columns_to_get, 0, MPI_COMM_WORLD, &send_A_res);
+    MPI_Igatherv(process_x, process_size, MPI_DOUBLE, x, num_elements, block_start_indx, MPI_DOUBLE, 0, MPI_COMM_WORLD,
+                 &send_x);
+
+    MPI_Wait(&send_A_res, MPI_STATUS_IGNORE);
+    MPI_Wait(&send_x, MPI_STATUS_IGNORE);
+
+    POLYBENCH_FREE_ARRAY(process_v2);
+    POLYBENCH_FREE_ARRAY(process_v1);
+    POLYBENCH_FREE_ARRAY(process_w);
+    POLYBENCH_FREE_ARRAY(process_x);
+    POLYBENCH_FREE_ARRAY(process_z);
+    POLYBENCH_FREE_ARRAY(process_A);
+
+    fflush(stdout);
+    MPI_Barrier(MPI_COMM_WORLD);
     MPI_Finalize();
+    fflush(stdout);
 
     if (world_rank != 0) {
         /* Be clean. */
-        // POLYBENCH_FREE_ARRAY(A);
-        // POLYBENCH_FREE_ARRAY(u1);
-        // POLYBENCH_FREE_ARRAY(v1);
-        // POLYBENCH_FREE_ARRAY(u2);
-        // POLYBENCH_FREE_ARRAY(v2);
-        // POLYBENCH_FREE_ARRAY(w);
-        // POLYBENCH_FREE_ARRAY(x);
-        // POLYBENCH_FREE_ARRAY(y);
-        // POLYBENCH_FREE_ARRAY(z);
-
         exit(0);
     }
 }
@@ -183,19 +195,6 @@ void kernel_gemver(int n, DATA_TYPE alpha, DATA_TYPE beta, DATA_TYPE POLYBENCH_2
     for (int i = 0; i < n; i++) {
         for (int j = 0; j < process_size; j++) {
             process_A[i * process_size + j] += u1[i] * process_v1[j] + u2[i] * process_v2[j];
-        }
-    }
-
-    MPI_Gatherv(process_A, process_size, new_columns, A, num_elements_matrix, block_start_indx_matrix,
-                new_columns_to_get, 0, MPI_COMM_WORLD);
-
-    /*
-    calculate  x = x + b * A^T * y + z
-    */
-
-    for (int i = 0; i < n; i++)  // change indixes to transpose A
-    {
-        for (int j = 0; j < process_size; j++) {
             process_x[j] += beta * process_A[i * process_size + j] * y[i];
         }
     }
@@ -204,9 +203,6 @@ void kernel_gemver(int n, DATA_TYPE alpha, DATA_TYPE beta, DATA_TYPE POLYBENCH_2
     {
         process_x[j] += process_z[j];
     }
-
-    // send results to first process
-    MPI_Gatherv(process_x, process_size, MPI_DOUBLE, x, num_elements, block_start_indx, MPI_DOUBLE, 0, MPI_COMM_WORLD);
 
     /*
     calculate  w += a * A * x
@@ -219,13 +215,5 @@ void kernel_gemver(int n, DATA_TYPE alpha, DATA_TYPE beta, DATA_TYPE POLYBENCH_2
     }
     // combine all process w to the main w in process 0
     MPI_Reduce(process_w, w, n, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
-
     // cali_end_region("kernel");
-
-    POLYBENCH_FREE_ARRAY(process_v2);
-    POLYBENCH_FREE_ARRAY(process_v1);
-    POLYBENCH_FREE_ARRAY(process_w);
-    POLYBENCH_FREE_ARRAY(process_x);
-    POLYBENCH_FREE_ARRAY(process_z);
-    POLYBENCH_FREE_ARRAY(process_A);
 }
