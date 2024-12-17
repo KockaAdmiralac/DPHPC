@@ -3,7 +3,7 @@
 
 /* Include mpi header. */
 #include <mpi.h>
-#include <omp.h>
+
 /* Include benchmark-specific header. */
 #include <caliper/cali.h>
 #include <math.h>
@@ -21,7 +21,6 @@ int remaining;
 
 int process_size;
 
-#define BLOCK_SIZE 64
 #define MAX_PROCESSES 16
 
 static int block_start_indx[MAX_PROCESSES];
@@ -31,6 +30,9 @@ static int num_elements_matrix[MAX_PROCESSES];
 
 MPI_Datatype columns, new_columns;  // used to send tge blocks of the 2d array
 MPI_Datatype columns_to_get, new_columns_to_get;
+
+MPI_Request send_A_res;
+MPI_Request send_x;
 
 double *process_z, *process_v1, *process_v2, *process_x, *process_w;
 double *process_A;
@@ -151,14 +153,11 @@ void finish_benchmark(int n, DATA_TYPE alpha, DATA_TYPE beta, DATA_TYPE POLYBENC
     (void)y;
     (void)z;
 
-    MPI_Request send_A_res;
-    MPI_Request send_x;
-    
     // send results to first process
-    MPI_Igatherv(process_x, process_size, MPI_DOUBLE, x, num_elements, block_start_indx, MPI_DOUBLE, 0, MPI_COMM_WORLD,
-                 &send_x);
     MPI_Igatherv(process_A, process_size, new_columns, A, num_elements_matrix, block_start_indx_matrix,
                  new_columns_to_get, 0, MPI_COMM_WORLD, &send_A_res);
+    MPI_Igatherv(process_x, process_size, MPI_DOUBLE, x, num_elements, block_start_indx, MPI_DOUBLE, 0, MPI_COMM_WORLD,
+                 &send_x);
 
     MPI_Wait(&send_A_res, MPI_STATUS_IGNORE);
     MPI_Wait(&send_x, MPI_STATUS_IGNORE);
@@ -194,14 +193,11 @@ void kernel_gemver(int n, DATA_TYPE alpha, DATA_TYPE beta, DATA_TYPE POLYBENCH_2
     calculate  A = A + u1*v1 + u2*v2
     */
     for (int i = 0; i < n; i++) {
-#pragma omp simd
         for (int j = 0; j < process_size; j++) {
             process_A[i * process_size + j] += u1[i] * process_v1[j] + u2[i] * process_v2[j];
             process_x[j] += beta * process_A[i * process_size + j] * y[i];
         }
     }
-
-    
 
     for (int j = 0; j < process_size; j++)  // careful need to add z outside of i loop!
     {
@@ -211,6 +207,7 @@ void kernel_gemver(int n, DATA_TYPE alpha, DATA_TYPE beta, DATA_TYPE POLYBENCH_2
     /*
     calculate  w += a * A * x
     */
+
     for (int i = 0; i < n; i++) {
         for (int j = 0; j < process_size; j++) {
             process_w[i] += alpha * process_A[i * process_size + j] * process_x[j];
@@ -218,7 +215,5 @@ void kernel_gemver(int n, DATA_TYPE alpha, DATA_TYPE beta, DATA_TYPE POLYBENCH_2
     }
     // combine all process w to the main w in process 0
     MPI_Reduce(process_w, w, n, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
-    
-
     // cali_end_region("kernel");
 }
