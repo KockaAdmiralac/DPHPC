@@ -24,8 +24,9 @@ def process_csv_to_json(csv_path, benchmark_name):
     # Define the base directory for results
     base_dir = Path("../results/np_bench_"+benchmark_name)
 
-    for (timestamp, benchmark, preset, framework, details), group in grouped:
-        # Compute statistics
+    for group_keys, group in grouped:
+    # Unpack the group keys (timestamp, benchmark, preset, framework, details)
+        timestamp, benchmark, preset, framework, details = group_keys
         times = group["time"]
         stats = {
             "mean": times.mean(),
