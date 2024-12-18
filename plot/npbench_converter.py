@@ -2,6 +2,7 @@ import json
 import pandas as pd
 import argparse
 from pathlib import Path
+import numpy as np
 
 def process_csv_to_json(csv_path, benchmark_name):
     # Load the CSV file
@@ -30,7 +31,7 @@ def process_csv_to_json(csv_path, benchmark_name):
             "mean": times.mean(),
             "min": times.min(),
             "max": times.max(),
-            "median": times.median(),
+            "median": np.median(times), 
             "std": times.std()
         }
 
