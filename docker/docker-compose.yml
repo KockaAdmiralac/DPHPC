@@ -3,6 +3,7 @@ services:
     image: paolo_custom/dphpc_cuda:24.04
     build:
       context: .
+    shm_size: '32gb'
     hostname: dphpc.celati.com
     ports:
     - 23:22/tcp
