@@ -65,8 +65,8 @@ void kernel_adi_orig(int tsteps, int n, DATA_TYPE POLYBENCH_2D(u, N2, N2, n, n),
             }
         }
 // Row Sweep
-#pragma omp parallel for  private(j, denom_inv)
-        for (int i = 1; i  < _PB_N - 1; i++) {
+#pragma omp parallel for private(j, denom_inv)
+        for (int i = 1; i < _PB_N - 1; i++) {
             u[i][0] = SCALAR_VAL(1.0);
             p[i][0] = SCALAR_VAL(0.0);
             q[i][0] = u[i][0];
@@ -74,9 +74,7 @@ void kernel_adi_orig(int tsteps, int n, DATA_TYPE POLYBENCH_2D(u, N2, N2, n, n),
             for (int j = 1; j < _PB_N - 1; j++) {
                 denom_inv = SCALAR_VAL(1.0) / (d * p[i][j - 1] + e);
                 p[i][j] = -f * denom_inv;
-                q[i][j] = (const_neg_a * v[i - 1][j] + const_1_2a * v[i][j] + const_neg_c * v[i + 1][j] -
-                            d * q[i][j - 1]) *
-                            denom_inv;
+                q[i][j] = (const_neg_a * v[i - 1][j] + const_1_2a * v[i][j] + const_neg_c * v[i + 1][j] - d * q[i][j - 1]) * denom_inv;
             }
             u[i][_PB_N - 1] = SCALAR_VAL(1.0);
             for (j = _PB_N - 2; j >= 1; j--) {
