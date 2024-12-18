@@ -1,0 +1,10 @@
+{
+    "directory": "plot\\results\\np_bench\\gemver",
+    "implementations": ["numpy_default", "numba_nopython_mode", "numba_nopython_mode_parallel", "pythran_default", "dace_cpu_fusion", "dace_cpu_parallel", "dace_cpu_auto_opt"],
+    "line_titles": ["NumPy", "Numba (NoPython Mode)", "Numba (Parallel, NoPython Mode)", "Pythran", "DaCe (CPU Fusion)", "DaCe (CPU Parallel)", "DaCe (CPU Auto-Optimized)"],
+    "N2" : ["1000", "2000", "3000", "4000","5000","6000","7000","8000","9000","10000","11000","12000","13000","14000", "15000"],
+    "filename_list":["npbench_gemver"],
+    "title_list": ["GEMVER NPBench Implementations"],
+    "plot_path":"plot\\imgs\\np_bench_gemver",
+    "set_threads": "1"
+}
