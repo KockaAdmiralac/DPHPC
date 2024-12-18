@@ -56,8 +56,13 @@ RUN apt install --allow-unauthenticated -y \
     clang-format \
     black \
     valgrind \
+    intel-mkl \
     apt-file && \
     apt-file update
+
+RUN apt-get install -y libatlas-base-dev python3-dev python3-ply python3-numpy python3-pythran libopenblas-dev && \
+echo -e '[compiler]\nblas=openblas' > ~/.pythranrc # See issue #1414 at the Pythran repo && \
+pip install numba dace pythran --break-system-packages
 
 RUN python3 -m pip install --break-system-packages marshmallow_numpy
 

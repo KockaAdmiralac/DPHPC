@@ -160,6 +160,11 @@ def prepare_single_compilation(
         if dphpc_opts.extra_compile_options is not None
         else []
     )
+    extra_options_post = (
+        dphpc_opts.extra_compile_options_post
+        if dphpc_opts.extra_compile_options_post is not None
+        else []
+    )
     args = [
         *{
             "serial": ("gcc",),
@@ -184,7 +189,9 @@ def prepare_single_compilation(
         *map(str, includes_args),
         *map(str, defines_args),
         *map(str, extra_options),
-    ] + list(map(str, compunits))
+        *map(str, compunits),
+        *map(str, extra_options_post),
+    ]
     if scheme == "cuda":
         args.extend(
             (

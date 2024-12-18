@@ -54,6 +54,7 @@ class VariantConfiguration:
 class Options:
     defines: dict[str, str] = field(default_factory=lambda: {})
     extra_compile_options: List[str] = field(default_factory=lambda: [])
+    extra_compile_options_post: List[str] = field(default_factory=lambda: [])
     data_check: Literal["strict", "fuzzy"] = "strict"
     max_deviation: Optional[float] = None
     defines_constraints: DefinesConstraints = field(default_factory=lambda: [])

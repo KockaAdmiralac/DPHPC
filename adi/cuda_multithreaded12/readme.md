@@ -15,3 +15,5 @@ So 32.9 GB/run
 Including the time for random auxiliary kernels like transpose/initialise at t=0.193 s this gets 170 GB/s bandwidth used for each of load/store.
 
 According to https://www.nvidia.com/content/PDF/product-specifications/GeForce_GTX_680_Whitepaper_FINAL.pdf, pg6 the GTX 680 aka GK104 has a bandwidth of 192.26 GB/s.
+
+Display name should be "Shared memory for shared input array"

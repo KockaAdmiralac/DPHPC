@@ -5,7 +5,9 @@
 #include <mpi.h>
 #include <omp.h>
 /* Include benchmark-specific header. */
+#ifndef TESTPY
 #include <caliper/cali.h>
+#endif
 #include <math.h>
 #include <stdio.h>
 #include <string.h>
