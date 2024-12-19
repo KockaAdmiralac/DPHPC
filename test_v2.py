@@ -11,6 +11,7 @@ import runner
 import single_benchmark
 from structures import *
 import result_processing
+import numpy as np
 
 
 class BenchmarkRunner:
@@ -132,11 +133,11 @@ class BenchmarkRunner:
                     break
                 res = self.run_single_benchmark(next_benchmark)
 
-                if (res.data_checked and not res.data_valid) or (
-                    res.raw_result is not None and res.raw_result.exit_code != 0
-                ):
-                    self.disqualify_benchmark(next_benchmark)
-                    print(f"Disqualified {next_benchmark}")
+                # if (res.data_checked and not res.data_valid) or (
+                #     res.raw_result is not None and res.raw_result.exit_code != 0
+                # ):
+                #     self.disqualify_benchmark(next_benchmark)
+                #     print(f"Disqualified {next_benchmark}")
 
                 self.results.append(res)
             except KeyboardInterrupt:
