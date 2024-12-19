@@ -7,10 +7,12 @@ from typing import Iterable, List, Literal, Tuple
 import marshmallow_dataclass
 import numpy as np
 import tabulate
-
+import pandas as pd
+import os
+import json
 import result_processing
 from structures import ProcessedResult, SingleBenchmark
-
+import plotting
 
 def load_results(results_file: Path) -> List[ProcessedResult]:
     procres_schema = marshmallow_dataclass.class_schema(ProcessedResult)()
@@ -76,7 +78,105 @@ def output_table(results: Iterable[result_processing.PreprocessedResultPair]) ->
 
 
 def output_graphs(results: Iterable[result_processing.PreprocessedResultPair]) -> None:
-    pass
+    bm_key = lambda res: res[0].benchmark
+    results_by_bm = itertools.groupby(sorted(results, key=bm_key), key=bm_key)
+    adi = []
+    gemver = []
+    for benchmark, bm_res in results_by_bm:
+        data = []
+        N2_key = lambda res: int(
+            res[0].variant_config.compile_options.extra_defines["N2"]
+        )
+        results_by_N2 = itertools.groupby(sorted(bm_res, key=N2_key), key=N2_key)
+        for N2, N2_res in results_by_N2:
+            sort_list = sorted(
+                        [
+                            (
+                                sb.benchmark,
+                                sb.variant,
+                                sb.run_options.threads,
+                                np.mean(timings["kernel_time"]),
+                                np.min(timings["kernel_time"]),
+                                np.max(timings["kernel_time"]),
+                                np.median(timings["kernel_time"]),
+                                np.std(timings["kernel_time"]),
+                                (
+                                    result_processing.get_ci(
+                                        np.array(timings["kernel_time"]), np.mean
+                                    )
+                                    if len(timings["kernel_time"]) >= 2
+                                    else None
+                                ),
+                                len(timings["kernel_time"]),
+                            )
+                            for (sb, timings) in N2_res
+                        ],
+                        key=lambda row: list(row)[2],
+                    )
+            for val in sort_list:
+                temp_data = {}
+                temp_data["threads"] = val[2]
+                temp_data["N"] = N2
+                temp_data["N2"] = N2
+                temp_data["tr"] = val[2]
+                temp_data["speedup"] = 0
+                temp_data["implementation"] = val[1]
+                temp_data["algorithm"] = val[0]
+                temp_data["mean"] = val[3]
+                temp_data["deviation"] = val[8]
+                data.append(temp_data)
+        if(benchmark == "adi"):
+            adi = data
+        else:
+            gemver = data
+    # df_adi = pd.DataFrame(adi)
+    # df_gem = pd.DataFrame(gemver)
+    # a = df_adi['tr'].unique()
+    # print(a)
+    # a = df_gem['tr'].unique()
+    # print(a)
+    # a = df_adi['N2'].unique()
+    # print(a)
+    # a = df_gem['N2'].unique()
+    # print(a)
+    #p = os.path.join("plot", "adi.json")
+    # with open(p) as f:
+    #     adi_dictionary = json.load(f)
+    # plotting.plotting_fun(
+    #     adi,
+    #     adi_dictionary["mpi_implementations"],
+    #     adi_dictionary["cuda_implementations"],
+    #     adi_dictionary["serial_implementations"],
+    #     adi_dictionary["open_implementations"],
+    #     adi_dictionary["threads"],
+    #     adi_dictionary["N2"],
+    #     adi_dictionary["N2_c"],
+    #     adi_dictionary["filename_list"],
+    #     adi_dictionary["title_list"],
+    #     adi_dictionary["plot_path"],
+    #     adi_dictionary["set_threads"],
+    #     adi_dictionary["set_n2"]
+    # )
+    p = os.path.join("plot", "gemver.json")
+    with open(p) as f:
+        gem_dictionary = json.load(f)
+    plotting.plotting_fun(
+        gemver,
+        gem_dictionary["mpi_implementations"],
+        gem_dictionary["cuda_implementations"],
+        gem_dictionary["serial_implementations"],
+        gem_dictionary["open_implementations"],
+        gem_dictionary["threads"],
+        gem_dictionary["N2"],
+        gem_dictionary["N2_c"],
+        gem_dictionary["filename_list"],
+        gem_dictionary["title_list"],
+        gem_dictionary["plot_path"],
+        gem_dictionary["set_threads"],
+        gem_dictionary["set_n2"],
+    )
+
+
 
 
 output_modes = {"table": output_table, "graphs": output_graphs}
