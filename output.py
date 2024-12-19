@@ -14,6 +14,7 @@ import result_processing
 from structures import ProcessedResult, SingleBenchmark
 import plotting
 
+
 def load_results(results_file: Path) -> List[ProcessedResult]:
     procres_schema = marshmallow_dataclass.class_schema(ProcessedResult)()
     with open(results_file, "r") as f:
@@ -90,29 +91,29 @@ def output_graphs(results: Iterable[result_processing.PreprocessedResultPair]) -
         results_by_N2 = itertools.groupby(sorted(bm_res, key=N2_key), key=N2_key)
         for N2, N2_res in results_by_N2:
             sort_list = sorted(
-                        [
-                            (
-                                sb.benchmark,
-                                sb.variant,
-                                sb.run_options.threads,
-                                np.mean(timings["kernel_time"]),
-                                np.min(timings["kernel_time"]),
-                                np.max(timings["kernel_time"]),
-                                np.median(timings["kernel_time"]),
-                                np.std(timings["kernel_time"]),
-                                (
-                                    result_processing.get_ci(
-                                        np.array(timings["kernel_time"]), np.mean
-                                    )
-                                    if len(timings["kernel_time"]) >= 2
-                                    else None
-                                ),
-                                len(timings["kernel_time"]),
+                [
+                    (
+                        sb.benchmark,
+                        sb.variant,
+                        sb.run_options.threads,
+                        np.mean(timings["kernel_time"]),
+                        np.min(timings["kernel_time"]),
+                        np.max(timings["kernel_time"]),
+                        np.median(timings["kernel_time"]),
+                        np.std(timings["kernel_time"]),
+                        (
+                            result_processing.get_ci(
+                                np.array(timings["kernel_time"]), np.mean
                             )
-                            for (sb, timings) in N2_res
-                        ],
-                        key=lambda row: list(row)[2],
+                            if len(timings["kernel_time"]) >= 2
+                            else None
+                        ),
+                        len(timings["kernel_time"]),
                     )
+                    for (sb, timings) in N2_res
+                ],
+                key=lambda row: list(row)[2],
+            )
             for val in sort_list:
                 temp_data = {}
                 temp_data["threads"] = val[2]
@@ -126,7 +127,7 @@ def output_graphs(results: Iterable[result_processing.PreprocessedResultPair]) -
                 temp_data["deviation"] = val[7]
                 temp_data["deviation_window"] = val[8]
                 data.append(temp_data)
-        if(benchmark == "adi"):
+        if benchmark == "adi":
             adi = data
         else:
             gemver = data
@@ -160,7 +161,7 @@ def output_graphs(results: Iterable[result_processing.PreprocessedResultPair]) -
         adi_dictionary["title_list"],
         adi_dictionary["plot_path"],
         adi_dictionary["set_threads"],
-        adi_dictionary["set_n2"]
+        adi_dictionary["set_n2"],
     )
     p = os.path.join("plot", "gemver.json")
     with open(p) as f:
@@ -184,8 +185,6 @@ def output_graphs(results: Iterable[result_processing.PreprocessedResultPair]) -
         gem_dictionary["set_threads"],
         gem_dictionary["set_n2"],
     )
-
-
 
 
 output_modes = {"table": output_table, "graphs": output_graphs}

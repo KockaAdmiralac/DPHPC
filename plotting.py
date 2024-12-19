@@ -23,7 +23,7 @@ def plotting_fun(
     title_list,
     plot_path,
     set_threads,
-    set_n2
+    set_n2,
 ):
     implementations = (
         cuda_implementations
@@ -31,54 +31,61 @@ def plotting_fun(
         + serial_implementations
         + open_implementations
     )
-    
 
     df = pd.DataFrame(data)
     baseline_df = df.loc[df["implementation"] == "serial_base"]
-    base_N = baseline_df['N'].tolist()
+    base_N = baseline_df["N"].tolist()
 
     for imp in implementations:
         if imp in cuda_implementations:
             helper = df.loc[df["implementation"] == imp]
-            N_list = helper['N'].tolist()
+            N_list = helper["N"].tolist()
             for nn in N_list:
                 if nn in base_N:
                     m = df.loc[
                         (df["implementation"] == imp) & (df["N"] == nn), "mean"
                     ].iloc[0]
                     base_m = baseline_df.loc[(baseline_df["N"] == nn), "mean"].iloc[0]
-                    df.loc[(df["implementation"] == imp) & (df["N"] == nn), "speedup"] = (
-                        base_m / m
-                    )
+                    df.loc[
+                        (df["implementation"] == imp) & (df["N"] == nn), "speedup"
+                    ] = (base_m / m)
 
         elif imp in serial_implementations:
             helper = df.loc[df["implementation"] == imp]
-            N_list = helper['N'].tolist()
+            N_list = helper["N"].tolist()
             for nn in N_list:
                 if nn in base_N:
                     m = df.loc[
                         (df["implementation"] == imp) & (df["N"] == nn), "mean"
                     ].iloc[0]
                     base_m = baseline_df.loc[(baseline_df["N"] == nn), "mean"].iloc[0]
-                    df.loc[(df["implementation"] == imp) & (df["N"] == nn), "speedup"] = (
-                        base_m / m
-                    )
+                    df.loc[
+                        (df["implementation"] == imp) & (df["N"] == nn), "speedup"
+                    ] = (base_m / m)
         else:
             helper = df.loc[df["implementation"] == imp]
-            N_list = helper['N'].tolist()
+            N_list = helper["N"].tolist()
             for nn in N_list:
                 if nn in base_N:
                     base_m = baseline_df.loc[(baseline_df["N"] == nn), "mean"].iloc[0]
-                    df.loc[(df["implementation"] == imp)
-                        & (df["N"] == nn), 'speedup'] = base_m/df['mean']
-                    
+                    df.loc[
+                        (df["implementation"] == imp) & (df["N"] == nn), "speedup"
+                    ] = (base_m / df["mean"])
 
     mpi_df = df.loc[df["implementation"].isin(mpi_implementations)]
     cuda_df = df.loc[df["implementation"].isin(cuda_implementations)]
     open_df = df.loc[df["implementation"].isin(open_implementations)]
     serial_df = df.loc[df["implementation"].isin(serial_implementations)]
-    mpi_df = mpi_df.groupby(["implementation", "N", "tr"]).apply(lambda x: x[x.index == x['mean'].idxmin()]).reset_index(drop=True)
-    open_df = open_df.groupby(["implementation", "N", "tr"]).apply(lambda x: x[x.index == x['mean'].idxmin()]).reset_index(drop=True)
+    mpi_df = (
+        mpi_df.groupby(["implementation", "N", "tr"])
+        .apply(lambda x: x[x.index == x["mean"].idxmin()])
+        .reset_index(drop=True)
+    )
+    open_df = (
+        open_df.groupby(["implementation", "N", "tr"])
+        .apply(lambda x: x[x.index == x["mean"].idxmin()])
+        .reset_index(drop=True)
+    )
 
     mpi_df_8 = mpi_df.loc[mpi_df["threads"] == set_threads]
     mpi_df_4000 = mpi_df.loc[mpi_df["N2"] == set_n2]
@@ -135,37 +142,36 @@ def plotting_fun(
                 linewidth=1,
                 elinewidth=0.4,
                 capsize=1.5,
-                fmt=line_style+marker,
+                fmt=line_style + marker,
                 alpha=0.8,
                 label=label_name,
                 color=color,
                 ecolor=color,
             )
-            
+
         if i > 3:
             ax.set_xlabel("# threads")
-            x = [ 1,2,4,6,8,12,16]
+            x = [1, 2, 4, 6, 8, 12, 16]
             plt.xticks(x)
         else:
             ax.set_xlabel("N size")
-            
 
         ax.set_ylabel("x speedup")
-        
-        #ax.legend(bbox_to_anchor=(1.1, 1.05))
+
+        # ax.legend(bbox_to_anchor=(1.1, 1.05))
         # if i != 0:
         #     ax.legend(loc="upper right")
         # else:
         #     ax.legend(loc="upper left")
 
         handles, labels = ax.get_legend_handles_labels()
-        lgd = ax.legend(handles, labels, loc='upper center', bbox_to_anchor=(0.5,-0.1))
+        lgd = ax.legend(handles, labels, loc="upper center", bbox_to_anchor=(0.5, -0.1))
         ax.axhline(y=1, color="0.8", linestyle="--")
         # plt.yticks(np.arange(-12, 12, 2))
         # plt.ylim((0,10))
         plt_title = title_list[i]
-        #ax.plot(x, x, color = 'red', linestyle="--", label = "Ideal linear bound")
+        # ax.plot(x, x, color = 'red', linestyle="--", label = "Ideal linear bound")
         plt.title(plt_title)
         file_path = filename + ".png"
-        #plt.savefig(file_path)
-        fig.savefig(file_path, bbox_extra_artists=(lgd,), bbox_inches='tight')
+        # plt.savefig(file_path)
+        fig.savefig(file_path, bbox_extra_artists=(lgd,), bbox_inches="tight")

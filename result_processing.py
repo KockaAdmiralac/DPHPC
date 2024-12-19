@@ -38,7 +38,7 @@ def get_ci_from_results(
 def keep_valid_runs(results: Iterable[ProcessedResult]) -> Iterable[ProcessedResult]:
     for res in results:
         if bool(res.timings):
-        #if res.data_checked and res.data_valid:
+            # if res.data_checked and res.data_valid:
             yield res
 
 
