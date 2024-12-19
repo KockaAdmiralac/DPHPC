@@ -123,7 +123,8 @@ def output_graphs(results: Iterable[result_processing.PreprocessedResultPair]) -
                 temp_data["implementation"] = val[1]
                 temp_data["algorithm"] = val[0]
                 temp_data["mean"] = val[3]
-                temp_data["deviation"] = val[8]
+                temp_data["deviation"] = val[7]
+                temp_data["deviation_window"] = val[8]
                 data.append(temp_data)
         if(benchmark == "adi"):
             adi = data
@@ -139,24 +140,28 @@ def output_graphs(results: Iterable[result_processing.PreprocessedResultPair]) -
     # print(a)
     # a = df_gem['N2'].unique()
     # print(a)
-    #p = os.path.join("plot", "adi.json")
-    # with open(p) as f:
-    #     adi_dictionary = json.load(f)
-    # plotting.plotting_fun(
-    #     adi,
-    #     adi_dictionary["mpi_implementations"],
-    #     adi_dictionary["cuda_implementations"],
-    #     adi_dictionary["serial_implementations"],
-    #     adi_dictionary["open_implementations"],
-    #     adi_dictionary["threads"],
-    #     adi_dictionary["N2"],
-    #     adi_dictionary["N2_c"],
-    #     adi_dictionary["filename_list"],
-    #     adi_dictionary["title_list"],
-    #     adi_dictionary["plot_path"],
-    #     adi_dictionary["set_threads"],
-    #     adi_dictionary["set_n2"]
-    # )
+    p = os.path.join("plot", "adi.json")
+    with open(p) as f:
+        adi_dictionary = json.load(f)
+    plotting.plotting_fun(
+        adi,
+        adi_dictionary["mpi_implementations"],
+        adi_dictionary["cuda_implementations"],
+        adi_dictionary["serial_implementations"],
+        adi_dictionary["open_implementations"],
+        adi_dictionary["mpi_implementations_names"],
+        adi_dictionary["cuda_implementations_names"],
+        adi_dictionary["serial_implementations_names"],
+        adi_dictionary["open_implementations_names"],
+        adi_dictionary["threads"],
+        adi_dictionary["N2"],
+        adi_dictionary["N2_c"],
+        adi_dictionary["filename_list"],
+        adi_dictionary["title_list"],
+        adi_dictionary["plot_path"],
+        adi_dictionary["set_threads"],
+        adi_dictionary["set_n2"]
+    )
     p = os.path.join("plot", "gemver.json")
     with open(p) as f:
         gem_dictionary = json.load(f)
@@ -166,6 +171,10 @@ def output_graphs(results: Iterable[result_processing.PreprocessedResultPair]) -
         gem_dictionary["cuda_implementations"],
         gem_dictionary["serial_implementations"],
         gem_dictionary["open_implementations"],
+        gem_dictionary["mpi_implementations_names"],
+        gem_dictionary["cuda_implementations_names"],
+        gem_dictionary["serial_implementations_names"],
+        gem_dictionary["open_implementations_names"],
         gem_dictionary["threads"],
         gem_dictionary["N2"],
         gem_dictionary["N2_c"],
