@@ -15,7 +15,7 @@ void kernel_gemver(int n, DATA_TYPE alpha, DATA_TYPE beta, DATA_TYPE POLYBENCH_2
                 _PB_N);
     cblas_dgemv(CblasRowMajor, CblasTrans, _PB_N, _PB_N, beta, (double *)A, _PB_N, y, 1, 1.0, z, 1);
     cblas_dgemv(CblasRowMajor, CblasNoTrans, _PB_N, _PB_N, alpha, (double *)A, _PB_N, z, 1, 0.0, w, 1);
-    memcpy(x, z, _PB_N);
+    memcpy(x, z, _PB_N * sizeof(double));
 }
 
 void initialise_benchmark(int argc, char **argv, int n, DATA_TYPE *alpha, DATA_TYPE *beta,
