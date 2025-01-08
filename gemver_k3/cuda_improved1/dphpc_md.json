@@ -1,0 +1,9 @@
+{
+    "data_check": "fuzzy",
+    "defines_constraints": [
+        {
+            "define": "N2",
+            "max": 2048
+        }
+    ]
+}

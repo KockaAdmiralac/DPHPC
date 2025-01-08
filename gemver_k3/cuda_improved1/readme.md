@@ -1,0 +1,1 @@
+This one basically takes the general multithreaded implementation, merges the kernels 1/2 and importantly u1, u2 and y are cached in shared memory.  The shared memory is max 48 kB so N2<=2048.

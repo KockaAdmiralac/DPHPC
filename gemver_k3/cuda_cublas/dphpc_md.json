@@ -1,0 +1,4 @@
+{
+    "data_check": "fuzzy",
+    "extra_compile_options": ["-L/usr/local/cuda-8.0/targets/x86_64-linux/lib/", "-lcublas", "-lcublas_device", "-lcudadevrt"]
+}

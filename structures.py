@@ -5,7 +5,7 @@ from typing import Any, List, Literal, Optional
 import marshmallow
 from datacheck import ParsedOutputData
 
-valid_benchmark = Literal["adi", "gemver"]
+valid_benchmark = Literal["adi", "gemver", "gemver_k1", "gemver_k2", "gemver_k3"]
 ParallelisationScheme = Literal["serial", "openmp", "mpi", "cuda"]
 
 DefinesConstraints = list[dict[str, int | str]]
