@@ -76,7 +76,7 @@ def load_options(benchmark: str, variant: str) -> options.Options:
     if not get_benchmark_dir(benchmark).exists():
         raise FileNotFoundError("Couldn't open benchmark directory")
     if not get_variant_dir(benchmark, variant).exists():
-        raise FileNotFoundError("Couldn't open variant directory")
+        raise FileNotFoundError(f"Couldn't open variant directory for benchmark {benchmark}, variant {variant}")
     return options.options_from_multiple_files(
         filter(
             Path.exists,
