@@ -83,6 +83,9 @@ def output_graphs(results: Iterable[result_processing.PreprocessedResultPair]) -
     results_by_bm = itertools.groupby(sorted(results, key=bm_key), key=bm_key)
     adi = []
     gemver = []
+    gemver1 = []
+    gemver2 = []
+    gemver3 = []
     for benchmark, bm_res in results_by_bm:
         data = []
         N2_key = lambda res: int(
@@ -120,7 +123,7 @@ def output_graphs(results: Iterable[result_processing.PreprocessedResultPair]) -
                 temp_data["N"] = N2
                 temp_data["N2"] = N2
                 temp_data["tr"] = val[2]
-                temp_data["speedup"] = 0
+                temp_data["speedup"] = val[3]
                 temp_data["implementation"] = val[1]
                 temp_data["algorithm"] = val[0]
                 temp_data["mean"] = val[3]
@@ -129,18 +132,15 @@ def output_graphs(results: Iterable[result_processing.PreprocessedResultPair]) -
                 data.append(temp_data)
         if benchmark == "adi":
             adi = data
+        elif benchmark == "gemver_k1":
+            gemver1 = data
+        elif benchmark == "gemver_k2":
+            gemver2 = data
+        elif benchmark == "gemver_k3":
+            gemver3 = data
         else:
             gemver = data
-    # df_adi = pd.DataFrame(adi)
-    # df_gem = pd.DataFrame(gemver)
-    # a = df_adi['tr'].unique()
-    # print(a)
-    # a = df_gem['tr'].unique()
-    # print(a)
-    # a = df_adi['N2'].unique()
-    # print(a)
-    # a = df_gem['N2'].unique()
-    # print(a)
+
     p = os.path.join("plot", "adi.json")
     with open(p) as f:
         adi_dictionary = json.load(f)
@@ -162,29 +162,80 @@ def output_graphs(results: Iterable[result_processing.PreprocessedResultPair]) -
         adi_dictionary["plot_path"],
         adi_dictionary["set_threads"],
         adi_dictionary["set_n2"],
+        adi_dictionary["runtime"],
+        False
     )
-    p = os.path.join("plot", "gemver.json")
-    with open(p) as f:
-        gem_dictionary = json.load(f)
-    plotting.plotting_fun(
-        gemver,
-        gem_dictionary["mpi_implementations"],
-        gem_dictionary["cuda_implementations"],
-        gem_dictionary["serial_implementations"],
-        gem_dictionary["open_implementations"],
-        gem_dictionary["mpi_implementations_names"],
-        gem_dictionary["cuda_implementations_names"],
-        gem_dictionary["serial_implementations_names"],
-        gem_dictionary["open_implementations_names"],
-        gem_dictionary["threads"],
-        gem_dictionary["N2"],
-        gem_dictionary["N2_c"],
-        gem_dictionary["filename_list"],
-        gem_dictionary["title_list"],
-        gem_dictionary["plot_path"],
-        gem_dictionary["set_threads"],
-        gem_dictionary["set_n2"],
-    )
+    # p = os.path.join("plot", "gemver.json")
+    # with open(p) as f:
+    #     gem_dictionary = json.load(f)
+    # plotting.plotting_fun(
+    #     gemver,
+    #     gem_dictionary["mpi_implementations"],
+    #     gem_dictionary["cuda_implementations"],
+    #     gem_dictionary["serial_implementations"],
+    #     gem_dictionary["open_implementations"],
+    #     gem_dictionary["mpi_implementations_names"],
+    #     gem_dictionary["cuda_implementations_names"],
+    #     gem_dictionary["serial_implementations_names"],
+    #     gem_dictionary["open_implementations_names"],
+    #     gem_dictionary["threads"],
+    #     gem_dictionary["N2"],
+    #     gem_dictionary["N2_c"],
+    #     gem_dictionary["filename_list"],
+    #     gem_dictionary["title_list"],
+    #     gem_dictionary["plot_path"],
+    #     gem_dictionary["set_threads"],
+    #     gem_dictionary["set_n2"],
+    #     gem_dictionary["runtime"],
+    #     False
+    # )
+    # p = os.path.join("plot", "gemver2.json")
+    # with open(p) as f:
+    #     gem_dictionary = json.load(f)
+    # plotting.plotting_fun(
+    #     gemver2,
+    #     gem_dictionary["mpi_implementations"],
+    #     gem_dictionary["cuda_implementations"],
+    #     gem_dictionary["serial_implementations"],
+    #     gem_dictionary["open_implementations"],
+    #     gem_dictionary["mpi_implementations_names"],
+    #     gem_dictionary["cuda_implementations_names"],
+    #     gem_dictionary["serial_implementations_names"],
+    #     gem_dictionary["open_implementations_names"],
+    #     gem_dictionary["threads"],
+    #     gem_dictionary["N2"],
+    #     gem_dictionary["N2_c"],
+    #     gem_dictionary["filename_list"],
+    #     gem_dictionary["title_list"],
+    #     gem_dictionary["plot_path"],
+    #     gem_dictionary["set_threads"],
+    #     gem_dictionary["set_n2"],
+    #     gem_dictionary["runtime"],
+    # )
+    # p = os.path.join("plot", "gemver.json")
+    # with open(p) as f:
+    #     gem_dictionary = json.load(f)
+    # plotting.plotting_fun(
+    #     gemver,
+    #     gem_dictionary["mpi_implementations"],
+    #     gem_dictionary["cuda_implementations"],
+    #     gem_dictionary["serial_implementations"],
+    #     gem_dictionary["open_implementations"],
+    #     gem_dictionary["mpi_implementations_names"],
+    #     gem_dictionary["cuda_implementations_names"],
+    #     gem_dictionary["serial_implementations_names"],
+    #     gem_dictionary["open_implementations_names"],
+    #     gem_dictionary["threads"],
+    #     gem_dictionary["N2"],
+    #     gem_dictionary["N2_c"],
+    #     gem_dictionary["filename_list"],
+    #     gem_dictionary["title_list"],
+    #     gem_dictionary["plot_path"],
+    #     gem_dictionary["set_threads"],
+    #     gem_dictionary["set_n2"],
+    #     gem_dictionary["runtime"],
+    #     True
+    # )
 
 
 output_modes = {"table": output_table, "graphs": output_graphs}

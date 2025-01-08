@@ -1,0 +1,27 @@
+{
+    "directory": "plot\\results\\gemver",
+    "mpi_implementations": [ ],
+    "cuda_implementations": ["cuda_improved3"],
+    "serial_implementations": [],
+    "open_implementations": [],
+    "implementations": ["cuda_improved3"],
+    "mpi_implementations_names": [ ],
+    "cuda_implementations_names": ["multiple accumulator"],
+    "serial_implementations_names": [],
+    "open_implementations_names": [],
+    "runtime": true,
+    
+    "threads" : [1,2,4,6,8,12,16],
+    "N2": [1000,1023,1024,1025,1535,1536,1537
+    ,2000,2047,2048,2049,3000,3171,3172,3173,4000,4095,4096,4097
+    ,5000,6000,6143,6144,6145,7000,8000,8191,8192,8193,9000,10000
+    ,10239,10240,10241,11000,12000,12287,12288,12289,13000,14000,14335,14336],
+    "N2_c" : [1000,1023,1024,1025,1535,1536,1537
+    ,2000,2047,2048,2049,3000,3171,3172,3173,4000,4095,4096,4097
+    ,5000,6000,6143,6144,6145,7000,8000,8191,8192 ],
+    "filename_list":["mpi_t_8", "cuda2", "serial", "open_t_8", "mpi_n_4000", "open_n_4000"],
+    "title_list": ["GEMVER MPI - 8 processes", "GEMVER cuda loop 2/3", "GEMVER serial", "GEMVER OpenMp - 8 threads", "GEMVER MPI - N = 4096", "GEMVER OpenMp - N = 14336"],
+    "plot_path":"plot\\imgs\\gemver",
+    "set_threads": 8,
+    "set_n2": 4096
+}

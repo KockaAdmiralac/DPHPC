@@ -1,15 +1,15 @@
 {
     "directory": "plot\\results\\gemver",
-    "mpi_implementations": [ "mpi_columns_non_blocking_communication_outside_sync_A","mpi_columns_openmp","mpi_basic",  "mpi_cols", "mpi_rows_outside_sync_A","mpi_columns_non_blocking_communication", "mpi_rows"],
+    "mpi_implementations": [ "mpi_columns_non_blocking_communication_outside_sync_A", "mpi_rows"],
     "cuda_implementations": ["cuda_cublas", "cuda_improved2", "cuda_improved3", "cuda_improved4", "cuda_improved6"],
-    "serial_implementations": ["serial_block_first_loop", "serial_block_second_loop", "serial_extracted_alpha", "serial_extracted_beta", "serial_merge_loops", "serial_neater_c", "serial_reorder_second_loop", "serial_vectorized_first_loop", "serial_vectorized_second_loop"],
-    "open_implementations": ["openmp_avx2","openmp_basic", "openmp_basic_all", "openmp_block_second_loop", "openmp_merged", "openmp_reorder_atomic", "openmp_reorder_reduce"],
+    "serial_implementations": ["mpi_columns_non_blocking_communication_outside_sync_A", "openmp_avx2", "cuda_improved6"],
+    "open_implementations": ["openmp_avx2","openmp_block_second_loop"],
     "implementations": ["cuda_cublas", "cuda_general_multithreaded", "cuda_improved2", "cuda_improved3", "cuda_improved4", "cuda_improved5", "cuda_improved6", "mpi_basic", "mpi_cols", "mpi_non_block", "openmp_basic", "openmp_basic_all", "openmp_block_second_loop", "openmp_merged", "openmp_reorder_atomic", "openmp_reorder_reduce", "serial_block_first_loop", "serial_block_second_loop", "serial_extracted_alpha", "serial_extracted_beta", "serial_merge_loops", "serial_neater_c", "serial_reorder_second_loop", "serial_vectorized_first_loop", "serial_vectorized_second_loop"],
-    "mpi_implementations_names": [ "columns_non_blocking_communication_outside_sync_A","columns_openmp","basic", "columns", "rows_outside_sync_A","columns_non_blocking_communication", "rows"],
+    "mpi_implementations_names": [  "Split by cols, sync A outside kernel", "Split by rows with sh. mem."],
     "cuda_implementations_names": ["Pure cublas", "u1/u2 in shared memory", "Fewer A bank conflicts and multiple accumulators", "Tiled gemv and A prefetched to shared memory", "Hybrid with cublas for transposed gemv"],
-    "serial_implementations_names": ["serial_block_first_loop", "serial_block_second_loop", "serial_extracted_alpha", "serial_extracted_beta", "serial_merge_loops", "serial_neater_c", "serial_reorder_second_loop", "serial_vectorized_first_loop", "serial_vectorized_second_loop"],
-    "open_implementations_names": ["avx2","basic", "basic_all", "block_second_loop", "merged", "reorder_atomic", "reorder_reduce"],
-    
+    "serial_implementations_names": ["Split by cols, sync A outside kernel","OpenMP with merged loops and AVX2","Hybrid with cublas for transposed gemv"],
+    "open_implementations_names": ["OpenMP with merged loops and AVX2","OpenMP with blocked loop 2"],
+    "runtime":true,
     "threads" : [ 1,2,4,6,8,12,16],
     "N2": [1000,1023,1024,1025,1535,1536,1537
     ,2000,2047,2048,2049,3000,3171,3172,3173,4000,4095,4096,4097
@@ -19,7 +19,7 @@
     ,2000,2047,2048,2049,3000,3171,3172,3173,4000,4095,4096,4097
     ,5000,6000,6143,6144,6145,7000,8000,8191,8192 ],
     "filename_list":["mpi_t_8", "cuda", "serial", "open_t_8", "mpi_n_4000", "open_n_4000"],
-    "title_list": ["GEMVER MPI - 8 processes", "GEMVER cuda", "GEMVER serial", "GEMVER OpenMp - 8 threads", "GEMVER MPI - N = 4096", "GEMVER OpenMp - N = 14336"],
+    "title_list": ["GEMVER MPI - 8 processes", "GEMVER cuda", "GEMVER best implementations", "GEMVER OpenMp - 8 threads", "GEMVER MPI - N = 4096", "GEMVER OpenMp - N = 4096"],
     "plot_path":"plot\\imgs\\gemver",
     "set_threads": 8,
     "set_n2": 4096
