@@ -8,7 +8,7 @@ import json
 colors = sns.color_palette()
 
 def plotting_fun(
-    data,
+    df,
     mpi_implementations,
     cuda_implementations,
     serial_implementations,
@@ -35,7 +35,7 @@ def plotting_fun(
         + open_implementations
     )
 
-    df = pd.DataFrame(data)
+    #df = pd.DataFrame(data)
     baseline_df = df.loc[df["implementation"] == "serial_base"]
     base_N = baseline_df["N"].tolist()
     if not runtime:
@@ -79,7 +79,7 @@ def plotting_fun(
     if with_np:
         data_np = []
         np_impl = []
-        bench_directory = "plot/np_bench_gemver"
+        bench_directory = "plot/np_bench_adi"
         for filename in os.listdir(bench_directory):
             if "truth" not in filename:
                 dir = os.path.join(bench_directory, filename)
@@ -87,12 +87,12 @@ def plotting_fun(
                         file_path = os.path.join(dir, single_file)
                         n = single_file.split('_')[-1]
                         n = n.split('.')[-2]
-                        n2 = n[2:]
+                        n2 = n[10:]
                         temp_data = {}
                         temp_data['N'] = n2
                         temp_data['N2'] = int(n2)
                         temp_data['tr'] = int(n2)
-                        if temp_data['N2'] <=14020 :
+                        if temp_data['N2'] <=6020 :
                             with open(file_path) as f:
                                 d = json.load(f)
                                 
@@ -112,9 +112,6 @@ def plotting_fun(
 
         df = pd.concat(frames)
         
-        mpi_implementations.append("dace_cpu_auto_opt")
-        cuda_implementations.append("dace_cpu_auto_opt")
-        open_implementations.append("dace_cpu_auto_opt")
         serial_implementations.append("dace_cpu_auto_opt")
 
     mpi_df = df.loc[df["implementation"].isin(mpi_implementations)]
@@ -124,16 +121,16 @@ def plotting_fun(
 
     mpi_df_8 = mpi_df.loc[(mpi_df["threads"] == set_threads) |( mpi_df["implementation"] == "serial_base") |( mpi_df["implementation"] == "dace_cpu_auto_opt")]
     mpi_df_4000 = mpi_df.loc[mpi_df["N2"] == set_n2]
-    open_df_8 = open_df.loc[(open_df["threads"] == set_threads) | (open_df["implementation"] == "serial_base") | (open_df["implementation"] == "serial_merge_loops") | (open_df["implementation"] == "dace_cpu_auto_opt")]
+    open_df_8 = open_df.loc[(open_df["threads"] == set_threads) | (open_df["implementation"] == "serial_block") | (open_df["implementation"] == "serial_base") | (open_df["implementation"] == "dace_cpu_auto_opt")]
     open_df_4000 = open_df.loc[open_df["N2"] == set_n2]
-    #serial_df = serial_df.loc[(serial_df["threads"] == set_threads) |( serial_df["implementation"] == "cuda_improved6")  |( serial_df["implementation"] == "dace_cpu_auto_opt")]
+    serial_df = serial_df.loc[(serial_df["threads"] == set_threads) |( serial_df["implementation"] == "cuda_minimise_spare_arr_pop")  |( serial_df["implementation"] == "serial_base_polly")  |( serial_df["implementation"] == "dace_cpu_auto_opt")]
 
-    # mpi_df_8 = mpi_df_8.loc[mpi_df_8['N2'] % 1000 == 0]
-    # open_df_8 = open_df_8.loc[open_df_8['N2'] % 1000 == 0]
-    # #open_df_4000 = open_df_4000.loc[open_df_4000['tr'] <17]
-    # cuda_df = cuda_df.loc[cuda_df['N2'] % 1000 == 0]
-    # serial_df = serial_df.loc[serial_df['N2'] % 1000 == 0]
-    baseline_df = df.loc[(df["implementation"] == "serial_base") & (df["N2"] == 4000)]
+    mpi_df_8 = mpi_df_8.loc[mpi_df_8['N2'] % 1000 == 0]
+    open_df_8 = open_df_8.loc[open_df_8['N2'] % 1000 == 0]
+    open_df_4000 = open_df_4000.loc[open_df_4000['tr'] <17]
+    cuda_df = cuda_df.loc[cuda_df['N2'] % 1000 == 0]
+    serial_df = serial_df.loc[serial_df['N2'] % 1000 == 0]
+    baseline_df = df.loc[(df["implementation"] == "serial_base") & (df["N2"] == 6144)]
     baset=baseline_df['speedup'].iloc[0]
     mpi_df_8 = mpi_df_8.sort_values("N2")
     mpi_df_4000 = mpi_df_4000.sort_values("tr")
@@ -189,9 +186,11 @@ def plotting_fun(
         df_list = [ mpi_df_8, cuda_df, serial_df, open_df_8, mpi_df_4000, open_df_4000]
 
     for i, imp_list in enumerate(plot_list):
+        sns.set_theme()
         fig, ax = plt.subplots(figsize=(9, 5))
-        ax = plt.axes(facecolor='#E6E6E6')
-        plt.grid(color='w', linestyle='solid')
+        
+        #ax = plt.axes(facecolor='#E6E6E6')
+        #plt.grid(color='w', linestyle='solid', axis='y')
         df_current = df_list[i]
         filename = filename_list[i]
         labels_list = plot_list_names[i]
@@ -231,10 +230,10 @@ def plotting_fun(
                 ax.set_xlabel("# threads")
             x = [1, 2, 4, 6, 8, 12, 16]
             plt.xticks(x)
-            ax.axhline(y=baset, color="1", linestyle="--", label = "Polybench baseline")
+            ax.axhline(y=baset, color="0", linestyle="--", label = "Polybench Baseline")
         else:
             ax.set_xlabel("N size")
-            ax.set_yscale('log')
+        ax.set_yscale('log', base=2)
 
         
         if runtime:
@@ -242,11 +241,45 @@ def plotting_fun(
         else:
             ax.set_ylabel("x speedup")
 
-        ax.legend(loc="upper right")
+        
+        #ax.legend(loc="upper left")
+        ax.legend(loc=(0,0.7))
         if not runtime:
-            ax.axhline(y=1, color="0.8", linestyle="--")
+            ax.axhline(y=1, color="0", linestyle="--")
 
         plt_title = title_list[i]
         plt.title(plt_title)
-        file_path = filename + ".png"
-        plt.savefig(file_path)
+        file_path1 = filename + ".png"
+        file_path = filename + ".eps"
+        plt.savefig(file_path, format='eps')
+        plt.savefig(file_path1)
+# def main():
+#     frame = pd.read_csv('gem.csv')
+#     p = os.path.join("plot", "gemver.json")
+#     with open(p) as f:
+#         dictionary = json.load(f)
+#     plotting_fun(
+#         frame,
+#         dictionary["mpi_implementations"],
+#         dictionary["cuda_implementations"],
+#         dictionary["serial_implementations"],
+#         dictionary["open_implementations"],
+#         dictionary["mpi_implementations_names"],
+#         dictionary["cuda_implementations_names"],
+#         dictionary["serial_implementations_names"],
+#         dictionary["open_implementations_names"],
+#         dictionary["threads"],
+#         dictionary["N2"],
+#         dictionary["N2_c"],
+#         dictionary["filename_list"],
+#         dictionary["title_list"],
+#         dictionary["plot_path"],
+#         dictionary["set_threads"],
+#         dictionary["set_n2"],
+#         dictionary["runtime"],
+#         False
+#     )
+
+
+# if __name__=="__main__":
+#     main()

@@ -130,41 +130,46 @@ def output_graphs(results: Iterable[result_processing.PreprocessedResultPair]) -
                 temp_data["deviation"] = val[7]
                 temp_data["deviation_window"] = val[8]
                 data.append(temp_data)
-        if benchmark == "adi":
-            adi = data
-        elif benchmark == "gemver_k1":
-            gemver1 = data
-        elif benchmark == "gemver_k2":
-            gemver2 = data
-        elif benchmark == "gemver_k3":
-            gemver3 = data
-        else:
-            gemver = data
+        # if benchmark == "adi":
+        #     df = pd.DataFrame(data)
+        #     df.to_csv('adi.csv')
+        # elif benchmark == "gemver_k1":
+        #     df = pd.DataFrame(data)
+        #     df.to_csv('gem1.csv')
+        # elif benchmark == "gemver_k2":
+        #     df = pd.DataFrame(data)
+        #     df.to_csv('gem2.csv')
+        # elif benchmark == "gemver_k3":
+        #     df = pd.DataFrame(data)
+        #     df.to_csv('gem3.csv')
+        # else:
+        #     df = pd.DataFrame(data)
+        #     df.to_csv('gem.csv')
 
-    p = os.path.join("plot", "adi.json")
-    with open(p) as f:
-        adi_dictionary = json.load(f)
-    plotting.plotting_fun(
-        adi,
-        adi_dictionary["mpi_implementations"],
-        adi_dictionary["cuda_implementations"],
-        adi_dictionary["serial_implementations"],
-        adi_dictionary["open_implementations"],
-        adi_dictionary["mpi_implementations_names"],
-        adi_dictionary["cuda_implementations_names"],
-        adi_dictionary["serial_implementations_names"],
-        adi_dictionary["open_implementations_names"],
-        adi_dictionary["threads"],
-        adi_dictionary["N2"],
-        adi_dictionary["N2_c"],
-        adi_dictionary["filename_list"],
-        adi_dictionary["title_list"],
-        adi_dictionary["plot_path"],
-        adi_dictionary["set_threads"],
-        adi_dictionary["set_n2"],
-        adi_dictionary["runtime"],
-        False
-    )
+    # p = os.path.join("plot", "adi.json")
+    # with open(p) as f:
+    #     adi_dictionary = json.load(f)
+    # plotting.plotting_fun(
+    #     adi,
+    #     adi_dictionary["mpi_implementations"],
+    #     adi_dictionary["cuda_implementations"],
+    #     adi_dictionary["serial_implementations"],
+    #     adi_dictionary["open_implementations"],
+    #     adi_dictionary["mpi_implementations_names"],
+    #     adi_dictionary["cuda_implementations_names"],
+    #     adi_dictionary["serial_implementations_names"],
+    #     adi_dictionary["open_implementations_names"],
+    #     adi_dictionary["threads"],
+    #     adi_dictionary["N2"],
+    #     adi_dictionary["N2_c"],
+    #     adi_dictionary["filename_list"],
+    #     adi_dictionary["title_list"],
+    #     adi_dictionary["plot_path"],
+    #     adi_dictionary["set_threads"],
+    #     adi_dictionary["set_n2"],
+    #     adi_dictionary["runtime"],
+    #     False
+    # )
     # p = os.path.join("plot", "gemver.json")
     # with open(p) as f:
     #     gem_dictionary = json.load(f)
